@@ -10,15 +10,22 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 
 # Exploratory Data Analysis
 
+## Useful links
+- [Data set](https://data.cityofchicago.org/Public-Safety/Crimes-2019/w98m-zvie)
+
 ## Imports
 ```{r}
 library(tidyverse)
+library(lubridate)
 ```
 
 ## Load data
 ```{r}
-df <- read_csv("./data/crime-2019.csv", col_types = cols())
+df = read_csv("./data/crime-2019.csv", col_types = cols())
+df$Timestamp = ymd_hms(mdy_hms(df$Date))
+df$Date = date(df$Timestamp)
 ```
+Overall:
 
 ```{r}
 df %>%
@@ -29,6 +36,39 @@ df %>%
   geom_col(aes(x=`Primary Type`, y=log10_count)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
+### Date and time
+Over the year:
+```{r}
+descs = unique(df$Description)
+
+# This might not be perfect but looks pretty good
+violent = descs[str_detect(descs, "SEX") |
+                    str_detect(descs, "ABUSE") |
+                    str_detect(descs, "HOMICIDE") |
+                    str_detect(descs, "VIOLENT") |
+                    str_detect(descs, "BATTERY") |
+                    (str_detect(descs, "AGGRAVATED") & !str_detect(descs, "NON-AGGRAVATED"))
+                ]
+
+df$Violent = df$Description %in% violent
+
+df %>%
+  group_by(Date, Violent) %>%
+  tally() %>%
+  ggplot(aes(x=Date, y=n, col=Violent)) +
+    geom_line()
+```
+
+
+Over 24 hour period:
+```{r}
+df$Hour = hour(df$Timestamp) + minute(df$Timestamp)/60
+
+df %>%
+  ggplot(aes(x=Hour, col=Violent)) +
+    geom_histogram(bins=24) +
+    scale_x_continuous(breaks = seq(0,24, 2))
+```
 
 ## Sp
 
@@ -37,13 +77,4 @@ library(sf)
 library(raster)
 # Import neighbourhood boundaries
 bounds <- st_read("data/nbd_bounds.shp")
-class(bounds)
-as.raster(bounds)
-as.SpatialPolygons.PolygonsList(bounds)
-r <- raster()
-r2 <- fasterize::fasterize(bounds, r)
-class(r2)
-str(r2)
-raster(r2)
-plot(r2)
 ```
