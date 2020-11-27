@@ -16,6 +16,7 @@ pnts <- pnts_sf %>% mutate(
 )
 
 pnts
+
 data.frame(table(pnts$intersection))
 bounds$total_crime <- data.frame(table(pnts$intersection))$Freq
 plot(bounds["total_crime"])
