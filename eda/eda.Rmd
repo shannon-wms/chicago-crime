@@ -70,11 +70,41 @@ df %>%
     scale_x_continuous(breaks = seq(0,24, 2))
 ```
 
-## Sp
+Proportion of incidents leading to arrests by time of day:
+```{r}
+df %>%
+  mutate(Hour = round(Hour)) %>%
+  group_by(Hour, Arrest) %>%
+  tally() %>%
+  pivot_wider(names_from = Arrest, values_from = n) %>%
+  mutate(prop_arrested = `TRUE`/(`TRUE`+`FALSE`)) %>%
+  ggplot(aes(x=Hour, y=prop_arrested)) +
+  geom_col() +
+  scale_x_continuous(breaks = seq(0,24,6))
+```
 
+
+
+Are there any duplicate case numbers?
+```{r}
+sum(duplicated(df$`Case Number`))
+```
+Duplicated IDs?
+```{r}
+sum(duplicated(df$ID))
+```
+
+
+
+
+## Sp
 ```{r}
 library(sf)
 library(raster)
 # Import neighbourhood boundaries
 bounds <- st_read("data/nbd_bounds.shp")
 ```
+
+
+
+
