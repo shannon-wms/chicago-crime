@@ -40,3 +40,6 @@ vignettes/*.pdf
 
 # Excel data files
 *.csv
+
+# R project files
+*.Rproj
