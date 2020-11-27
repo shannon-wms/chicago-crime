@@ -36,5 +36,14 @@ df %>%
 library(sf)
 library(raster)
 # Import neighbourhood boundaries
-bounds <- read_sf("data/nbd_bounds.shp")
+bounds <- st_read("data/nbd_bounds.shp")
+class(bounds)
+as.raster(bounds)
+as.SpatialPolygons.PolygonsList(bounds)
+r <- raster()
+r2 <- fasterize::fasterize(bounds, r)
+class(r2)
+str(r2)
+raster(r2)
+plot(r2)
 ```
