@@ -1,0 +1,21 @@
+---
+title: "EDA"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exploratory Data Analysis
+
+## Imports
+```{r}
+library(tidyverse)
+```
+
+## Load data
+```{r}
+df = read_csv("./data/crime-2019.csv", col_types = cols())
+```
+
