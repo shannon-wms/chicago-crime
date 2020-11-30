@@ -86,7 +86,8 @@ p %>% ggplotly(tooltip = "text") %>% style(hoverlabel = list(bgcolor = "white"),
 
 Can use google map backgrounds with `plotly` and `ggplot2`. Used the following tutorials: https://www.littlemissdata.com/blog/maps 
 https://cengel.github.io/R-spatial/mapping.html
-```{r, message = FALSE}
+
+```{r, message = FALSE, warning = FALSE}
 library(ggmap)
 
 register_google(key = "AIzaSyAv2lYIQ4Iw-Qu4bDPFsGB-Rdosvr_U208")
@@ -107,7 +108,7 @@ p %>% ggplotly(tooltip = "text") %>% style(hoverlabel = list(bgcolor = "white"),
 
 Or instead can create interactive maps using `leaflet` package (but as far as I know doesn't work with plotly). Tutorial: https://rstudio.github.io/leaflet/shapes.html.
 
-```{r, message = FALSE}
+```{r, message = FALSE, warning = FALSE}
 library(leaflet)
 
 leaflet(com_bounds) %>% addTiles() %>%
