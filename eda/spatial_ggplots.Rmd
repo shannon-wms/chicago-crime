@@ -84,7 +84,8 @@ library(plotly)
 p %>% ggplotly(tooltip = "text") %>% style(hoverlabel = list(bgcolor = "white"), hoveron = "fill")
 ```
 
-Can use google map backgrounds with plotly and ggplot2.
+Can use google map backgrounds with `plotly` and `ggplot2`. Used the following tutorials: https://www.littlemissdata.com/blog/maps 
+https://cengel.github.io/R-spatial/mapping.html
 ```{r, message = FALSE}
 library(ggmap)
 
@@ -104,7 +105,7 @@ p <- ggmap(basemap) + geom_sf(data = com_bounds, aes(fill = crime_summary, text 
 p %>% ggplotly(tooltip = "text") %>% style(hoverlabel = list(bgcolor = "white"), hoveron = "fill")
 ```
 
-Or instead can create interactive maps using `leaflet` package (but as far as I know doesn't work with plotly).
+Or instead can create interactive maps using `leaflet` package (but as far as I know doesn't work with plotly). Tutorial: https://rstudio.github.io/leaflet/shapes.html.
 
 ```{r, message = FALSE}
 library(leaflet)
@@ -114,6 +115,6 @@ leaflet(com_bounds) %>% addTiles() %>%
               opacity = 1.0, fillOpacity = 0.4,
               fillColor = ~colorNumeric("inferno", crime_summary, reverse = T)(crime_summary),
               highlightOptions = highlightOptions(color = "white", weight = 2,
-                                                  bringToFront = TRUE)) %>% addLegend(pal  = colorNumeric("inferno", com_bounds$crime_summary, reverse = T), values = ~com_bounds$crime_summary, title = "Crimes") 
+                                                  bringToFront = TRUE), label = com_bounds$community) %>% addLegend(pal  = colorNumeric("inferno", com_bounds$crime_summary, reverse = T), values = ~com_bounds$crime_summary, title = "Crimes") 
 
 ```
