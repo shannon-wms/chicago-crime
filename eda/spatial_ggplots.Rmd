@@ -85,7 +85,8 @@ p %>% ggplotly(tooltip = "text") %>% style(hoverlabel = list(bgcolor = "white"),
 ```
 
 Can use google map backgrounds with plotly and ggplot2.
-```{r, message = FALSE}
+
+```{r, message = FALSE, warning = FALSE}
 library(ggmap)
 
 register_google(key = "AIzaSyAv2lYIQ4Iw-Qu4bDPFsGB-Rdosvr_U208")
@@ -94,19 +95,19 @@ map_centre <- as.data.frame(geocode("chicago"))
 
 basemap <- get_map(location=c(lon = map_centre$lon, lat = map_centre$lat), zoom=11)
 
-p <- ggmap(basemap) + geom_sf(data = com_bounds, aes(fill = crime_summary, text = community, alpha = 0.3), inherit.aes = F) + 
+p1 <- ggmap(basemap) + geom_sf(data = com_bounds, aes(fill = crime_summary, text = community, alpha = 0.3), inherit.aes = F) + 
   ggtitle("Crime frequency by community area") +
   colorspace::scale_fill_continuous_sequential(5, palette = "Inferno") + theme_void() +
   guides(fill = guide_colorbar(title = "Frequency")) +
   scale_fill_gradientn(colors = colorspace::sequential_hcl(5, palette = "Inferno")[5:1], 
                        breaks = seq(0, 15000, 2500), limits = c(0, 15000))
 
-p %>% ggplotly(tooltip = "text") %>% style(hoverlabel = list(bgcolor = "white"), hoveron = "fill")
+p1 %>% ggplotly(tooltip = "text") %>% style(hoverlabel = list(bgcolor = "white"), hoveron = "fill")
 ```
 
 Or instead can create interactive maps using `leaflet` package (but as far as I know doesn't work with plotly).
 
-```{r, message = FALSE}
+```{r, message = FALSE, warning = FALSE}
 library(leaflet)
 
 leaflet(com_bounds) %>% addTiles() %>%
@@ -114,6 +115,8 @@ leaflet(com_bounds) %>% addTiles() %>%
               opacity = 1.0, fillOpacity = 0.4,
               fillColor = ~colorNumeric("inferno", crime_summary, reverse = T)(crime_summary),
               highlightOptions = highlightOptions(color = "white", weight = 2,
-                                                  bringToFront = TRUE)) %>% addLegend(pal  = colorNumeric("inferno", com_bounds$crime_summary, reverse = T), values = ~com_bounds$crime_summary, title = "Crimes") 
+                                                  bringToFront = TRUE)) %>% 
+  addLegend(pal  = colorNumeric("inferno", com_bounds$crime_summary, reverse = T), 
+            values = ~com_bounds$crime_summary, title = "Crimes") 
 
 ```
