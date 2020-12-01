@@ -122,3 +122,38 @@ leaflet(com_bounds) %>% addTiles() %>%
   addLegend(pal  = colorNumeric("inferno", com_bounds$crime_summary, reverse = T), 
             values = ~com_bounds$crime_summary, title = "Crimes")
 ```
+
+
+```{r}
+communityplot <- function(bounds, df, pritype, freq = "cumulative", map = TRUE, hover = TRUE) {
+  if (!(freq %in% c("cumulative", "relative"))) {
+    cat('Specify freq as "cumulative" or "relative".')
+    return()
+  }
+  if (!(pritype %in% df$PrimaryType)) {
+    cat('Specify a valid primary type.')
+    return()
+  }
+  pri_summary <- df %>% filter(PrimaryType == pritype) %>% select(CommunityArea) %>% table() %>% as.data.frame()
+  if (freq == "relative") pri_summary$Freq <- pri_summary$Freq / sum(pri_summary$Freq)
+  bounds$pri_summary <- round(pri_summary$Freq, 3)
+  legendtitle <- ifelse(freq == "relative", "Relative Frequency", "Cumulative Frequency")
+  legendbreaks <- 
+  gglayers <- list(ggtitle(paste("Frequency of", tolower(pritype), "reports by community area")),
+                   colorspace::scale_fill_continuous_sequential(5, palette = "Inferno"),
+                   theme_void(),
+                   guides(fill = guide_colorbar(title = legendtitle)))
+  if (map == FALSE) {
+    p <- ggplot(data = bounds) + geom_sf(aes(fill = pri_summary, text = paste0(community, ": ", pri_summary))) + gglayers
+  } else {
+    p <- ggmap(basemap) + geom_sf(data = bounds, 
+                                  aes(fill = pri_summary, text = paste0(community, ": ", pri_summary)), 
+                                  inherit.aes = FALSE, alpha = 0.8) + gglayers
+  }
+  if (hover == FALSE) p
+  else p %>% ggplotly(tooltip = "text") %>% style(hoverlabel = list(bgcolor = "white"), 
+                                                  hoveron = "fill", traces = seq.int(2, length(p$x$data)))
+}
+
+communityplot(bounds = com_bounds, df = Crime_NA, pritype = "SEX OFFENSE", freq = "cumulative", map = FALSE)
+```
