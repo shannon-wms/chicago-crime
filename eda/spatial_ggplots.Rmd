@@ -94,9 +94,11 @@ register_google(key = "AIzaSyAv2lYIQ4Iw-Qu4bDPFsGB-Rdosvr_U208")
 
 map_centre <- as.data.frame(geocode("chicago"))
 
-basemap <- get_map(location=c(lon = map_centre$lon, lat = map_centre$lat), zoom=11)
+basemap <- get_map(location = c(lon = map_centre$lon, lat = map_centre$lat), zoom = 10)
 
-p <- ggmap(basemap) + geom_sf(data = com_bounds, aes(fill = crime_summary, text = community, alpha = 0.3), inherit.aes = F) + 
+p <- ggmap(basemap) + geom_sf(data = com_bounds, 
+                              aes(fill = crime_summary, text = paste0(community, ": ", crime_summary)), 
+                              inherit.aes = FALSE, alpha = 0.8) + 
   ggtitle("Crime frequency by community area") +
   colorspace::scale_fill_continuous_sequential(5, palette = "Inferno") + theme_void() +
   guides(fill = guide_colorbar(title = "Frequency")) +
@@ -116,6 +118,7 @@ leaflet(com_bounds) %>% addTiles() %>%
               opacity = 1.0, fillOpacity = 0.4,
               fillColor = ~colorNumeric("inferno", crime_summary, reverse = T)(crime_summary),
               highlightOptions = highlightOptions(color = "white", weight = 2,
-                                                  bringToFront = TRUE), label = com_bounds$community) %>% addLegend(pal  = colorNumeric("inferno", com_bounds$crime_summary, reverse = T), values = ~com_bounds$crime_summary, title = "Crimes") 
-
+                                                  bringToFront = TRUE), label = com_bounds$community) %>% 
+  addLegend(pal  = colorNumeric("inferno", com_bounds$crime_summary, reverse = T), 
+            values = ~com_bounds$crime_summary, title = "Crimes")
 ```
