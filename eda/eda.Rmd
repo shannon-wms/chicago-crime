@@ -17,31 +17,43 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 ```{r}
 library(tidyverse)
 library(lubridate)
+library(glue)
 ```
 
 ## Load data
 ```{r}
 df = read_csv("./data/crime-2019.csv", col_types = cols())
-df$Timestamp = ymd_hms(mdy_hms(df$Date))
-df$Date = date(df$Timestamp)
-```
-Overall:
+colnames(df) <- str_replace(tolower(colnames(df)), " ", "_")
 
+# sort out dates
+df = df %>%
+  mutate(timestamp =  ymd_hms(mdy_hms(date)),
+         updated_on = ymd_hms(mdy_hms(updated_on))) %>%
+  select(-date)
+```
+
+Summary:
+```{r}
+summary(df)
+```
+
+
+Overall:
 ```{r}
 df %>%
-  group_by(`Primary Type`) %>%
+  group_by(primary_type) %>%
   tally(name = "count") %>%
   mutate(log10_count = log10(count)) %>%
   ggplot() +
-  geom_col(aes(x=`Primary Type`, y=log10_count)) +
+  geom_col(aes(x=primary_type, y=log10_count)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 ### Date and time
 Over the year:
 ```{r}
-descs = unique(df$Description)
+descs = unique(df$description)
 
-# This might not be perfect but looks pretty good
+# This might not be perfect but looks pretty good. Might be able to instead use IUCR code?
 violent = descs[str_detect(descs, "SEX") |
                     str_detect(descs, "ABUSE") |
                     str_detect(descs, "HOMICIDE") |
@@ -50,22 +62,25 @@ violent = descs[str_detect(descs, "SEX") |
                     (str_detect(descs, "AGGRAVATED") & !str_detect(descs, "NON-AGGRAVATED"))
                 ]
 
-df$Violent = df$Description %in% violent
+df$violent = df$description %in% violent
+
+yday(df$timestamp)
 
 df %>%
-  group_by(Date, Violent) %>%
+  mutate(yday = yday(timestamp)) %>%
+  group_by(yday, violent) %>%
   tally() %>%
-  ggplot(aes(x=Date, y=n, col=Violent)) +
+  ggplot(aes(x=yday, y=n, col=violent)) +
     geom_line()
 ```
 
 
 Over 24 hour period:
 ```{r}
-df$Hour = hour(df$Timestamp) + minute(df$Timestamp)/60
+df$hour = hour(df$timestamp) + minute(df$timestamp)/60
 
 df %>%
-  ggplot(aes(x=Hour, col=Violent)) +
+  ggplot(aes(x=hour, col=violent)) +
     geom_histogram(bins=24) +
     scale_x_continuous(breaks = seq(0,24, 2))
 ```
@@ -73,29 +88,68 @@ df %>%
 Proportion of incidents leading to arrests by time of day:
 ```{r}
 df %>%
-  mutate(Hour = round(Hour)) %>%
-  group_by(Hour, Arrest) %>%
+  mutate(hour = round(hour)) %>%
+  group_by(hour, arrest) %>%
   tally() %>%
-  pivot_wider(names_from = Arrest, values_from = n) %>%
+  pivot_wider(names_from = arrest, values_from = n) %>%
   mutate(prop_arrested = `TRUE`/(`TRUE`+`FALSE`)) %>%
-  ggplot(aes(x=Hour, y=prop_arrested)) +
+  ggplot(aes(x=hour, y=prop_arrested)) +
   geom_col() +
   scale_x_continuous(breaks = seq(0,24,6))
 ```
 
-
-
 Are there any duplicate case numbers?
 ```{r}
-sum(duplicated(df$`Case Number`))
+sum(duplicated(df$case_number))
 ```
 Duplicated IDs?
 ```{r}
-sum(duplicated(df$ID))
+sum(duplicated(df$id))
+```
+## Updated on
+Perhaps the updated_on feature is useful for predicting arrests. In particular, perhaps the lag between the crime and when it was updated is informative:
+```{r}
+yday_float = function(timestamp){
+  yday(timestamp) + hour(timestamp)/24 + minute(timestamp)/(24*60)
+}
+
+lag = yday_float(df$updated_on)  - yday_float(df$timestamp)
+lag_df = tibble(lag, arrest=df$arrest)
+
+ggplot(lag_df) +
+  geom_boxplot(aes(x=lag, y=arrest), outlier.colour = "red", )
+```
+Some crimes seem to have been last updated before the crime took place? Lots of big outliers. Not sure I understand this... But most seem to be reasonable:
+```{r}
+lag_df %>%
+  group_by(arrest) %>%
+  summarise(mean = mean(lag), .groups="drop",
+            median = median(lag),
+            iqr = IQR(lag))
 ```
 
+```{r}
+lag_df %>%
+  filter(lag>0, lag < 12) %>%
+  ggplot(aes(x=lag, col=arrest)) +
+    geom_density()
+```
+Maybe some slight difference between densities, but doesn't seem like much. Most are uploaded a week later, mean is skewed by outliers.
 
 
+What time are they updated:
+```{r}
+df %>%
+  mutate(updated_hour = hour(df$updated_on)) %>%
+  group_by(updated_hour, arrest) %>%
+  tally() %>%
+  group_by(arrest) %>%
+  mutate(proportion = n/sum(n)) %>%
+  ggplot() +
+  geom_col(aes(x=updated_hour, y=proportion), bins=24) +
+  facet_wrap(~arrest, scales = "free")
+```
+Looks like they both tend to be updated at similar times.
 
 ## Sp
 ```{r}
@@ -104,6 +158,8 @@ library(raster)
 # Import neighbourhood boundaries
 bounds <- st_read("data/nbd_bounds.shp")
 ```
+
+
 
 
 
