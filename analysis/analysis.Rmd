@@ -1,0 +1,60 @@
+---
+title: "Analysis"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Predicting if a suspect is arrested
+Predicting if a suspect is arrested is a binary classification problem. In order to get a baseline, we will first consider logistic regression. This has the assumption that the data is independent and identically distributed, which likely is not the case. However, it gives us a baseline against which further analysis can be conducted.
+
+## Imports
+```{r}
+library(tidyverse)
+library(lubridate)
+devtools::load_all("../chigcrim/")
+```
+
+## Load data
+```{r}
+df = read_csv("./data/crime-2019.csv", col_types = cols())
+colnames(df) <- str_replace(tolower(colnames(df)), " ", "_")
+
+# sort out dates
+df = df %>%
+  mutate(timestamp =  ymd_hms(mdy_hms(date)),
+         updated_on = ymd_hms(mdy_hms(updated_on))) %>%
+  select(-date)
+```
+
+
+## Feature selection
+Choices:
+- Encode the date as the day in the year (1-365)
+
+- Encode time of day as a float 0-24 (this looks good from a plot of proportion arrested over time).
+
+- Drop `year` as these are all 2019
+
+- We will drop the `id`s, as it contains unique values
+
+- We will drop `case_numbers`, as it contains almost all unique values
+
+- Drop `primary_type`, `description`, as these are contained within the `iucr` code.
+
+- Assume `updated_on` is not informative (see EDA)
+
+
+```{r}
+
+df = df %>%
+  select(-c(id, year, case_number, primary_type, description, updated_on)) %>%
+  mutate(day = yday(df$timestamp),
+         time = hour(df$timestamp) + minute(df$timestamp)/60)
+
+df
+
+```
+
