@@ -146,10 +146,36 @@ df %>%
   group_by(arrest) %>%
   mutate(proportion = n/sum(n)) %>%
   ggplot() +
-  geom_col(aes(x=updated_hour, y=proportion), bins=24) +
+  geom_col(aes(x=updated_hour, y=proportion)) +
   facet_wrap(~arrest, scales = "free")
 ```
-Looks like they both tend to be updated at similar times.
+Looks like they both tend to be updated at similar times for arrested/not arrested.
+
+## Missing values
+
+```{r}
+library(UpSetR)
+p = gg_miss_upset(df)
+
+```
+
+This plot tells us that only the 5 variables have missing values, and in every observation with missing values, they miss all the 5 variables. Note that other variables `district` and `block`, are not missing to these could be used to impute the missing values. Given they are such a small proportion of the dataset, we could also just drop them. To have a quick look to check they are missing completely at random:
+
+
+```{r}
+# Plot index of missing values
+df %>%
+  mutate(complete = complete.cases(df)) %>%
+  mutate(day = yday(timestamp)) %>%
+  group_by(day, complete, arrest) %>%
+  tally() %>%
+  group_by(arrest) %>%
+  mutate(proportion_missing = n/sum(n)) %>%
+  ggplot() +
+  geom_line(aes(y=proportion_missing, x=day, col=arrest), size=0.2)
+```
+Does not seem to be missing completely at random, but perhaps a small enough part of the data set that we can ignore it anyway.
+
 
 ## Sp
 ```{r}
