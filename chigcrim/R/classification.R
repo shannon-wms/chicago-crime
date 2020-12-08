@@ -108,5 +108,17 @@ LogisticRegression = R6Class("LogisticRegression", list(
     predictions = as.vector(sigmoid(X %*% self$theta))
     names(predictions) = rownames(X)
     predictions
+  },
+  
+  #' @description
+  #' Print LogisticRegression object.
+  print = function(...) {
+    cat("LogisticRegression: \n")
+    cat("head(X) = ", head(self$X, 1), "\n", sep = " ")
+    cat("head(y) = ", head(self$y, 1), "\n", sep = " ")
+    cat("lambda = ", self$lambda, "\n", sep = " ")
+    cat("solver = ", self$solver, "\n", sep = " ")
+    cat("theta = ", self$theta, "\n", sep = " ")
+    invisible(self)
   }
 ))
