@@ -19,7 +19,7 @@ devtools::load_all("../chigcrim/")
 
 ## Load data
 ```{r}
-df = read_csv("./data/crime-2019.csv", col_types = cols())
+df = read_csv("../data/crime-2019.csv", col_types = cols())
 colnames(df) <- str_replace(tolower(colnames(df)), " ", "_")
 
 # sort out dates
@@ -32,7 +32,7 @@ df = df %>%
 
 ## Feature selection
 Choices:
-- Encode the date as the day in the year (1-365)
+- Encode the date as the day in the year (1-365) - This
 
 - Encode time of day as a float 0-24 (this looks good from a plot of proportion arrested over time).
 
@@ -48,13 +48,9 @@ Choices:
 
 
 ```{r}
-
 df = df %>%
   select(-c(id, year, case_number, primary_type, description, updated_on)) %>%
   mutate(day = yday(df$timestamp),
          time = hour(df$timestamp) + minute(df$timestamp)/60)
-
-df
-
 ```
 
