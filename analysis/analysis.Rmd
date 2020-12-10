@@ -63,19 +63,6 @@ Choices:
 
 
 ```{r}
-# Converts less common categories to "OTHER"
-otherise <- function(string_vec, n_threshold, print_summary = TRUE){
-  counts <- table(string_vec)
-  other_names <- names(counts[counts < n_threshold])
-  string_vec[string_vec %in% other_names] <- "OTHER"
-  if (print_summary){
-    print(paste(length(other_names), "out of", length(counts),
-                "categories were converted to OTHER corresponding to",
-                100*length(string_vec[string_vec == "OTHER"])/length(string_vec),
-                "% of observations"))
-  }
-  string_vec
-}
 
 df$primary_type <- otherise(df$primary_type, 5000)
 df$location_description <- otherise(df$location_description, 5000)

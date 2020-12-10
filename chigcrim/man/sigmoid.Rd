@@ -7,13 +7,13 @@
 sigmoid(z)
 }
 \arguments{
-\item{z}{numeric (log ratio estimate)}
+\item{z}{numeric Log ratio estimate.}
 }
 \value{
 float
 }
 \description{
-Computes sigmoid function using 1/(1 + exp(-z))
+Computes sigmoid function using 1/(1 + exp(-z)).
 }
 \examples{
 sigmoid(0)

@@ -72,8 +72,31 @@ load_data <- function(year = NULL, strings_as_factors = TRUE,
     df %<>% select(-location)
   }
 
-  # Drop location (note this is redundant lattitude and longitude)
+  # Drop location (note this is redundant latitude and longitude)
 
   return(df)
+}
+
+
+
+#' Convert less common strings to other.
+#'
+#' @param string_vec Vector of strings.
+#' @param n_threshold Threshold count below which will be converted to other.
+#' @param print_summary Prints a summary of operation performed.
+#'
+#' @return vector of strings
+#' @export
+otherise <- function(string_vec, n_threshold, print_summary = TRUE){
+  counts <- table(string_vec)
+  other_names <- names(counts[counts < n_threshold])
+  string_vec[string_vec %in% other_names] <- "OTHER"
+  if (print_summary){
+    print(paste(length(other_names), "out of", length(counts),
+                "categories were converted to OTHER corresponding to",
+                100*length(string_vec[string_vec == "OTHER"])/length(string_vec),
+                "% of observations"))
+  }
+  string_vec
 }
 
