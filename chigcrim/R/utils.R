@@ -1,5 +1,5 @@
 # Script contains useful general purpose utility functions
-#' @import data.table
+#' @importFrom data.table as.data.table
 #' @importFrom mltools one_hot
 #' @import RSocrata
 #' @import dplyr
@@ -98,5 +98,19 @@ otherise <- function(string_vec, n_threshold, print_summary = TRUE){
                 "% of observations"))
   }
   string_vec
+}
+
+
+
+#' yday float
+#'
+#' Convert timestamp to float in 1-366
+#' @param timestamp Date in POSIXct
+#'
+#' @return Floating point numbers
+#' @export
+#'
+yday_float = function(timestamp){
+  yday(timestamp) + hour(timestamp)/24 + minute(timestamp)/(24*60)
 }
 

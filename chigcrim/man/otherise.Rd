@@ -2,16 +2,20 @@
 % Please edit documentation in R/utils.R
 \name{otherise}
 \alias{otherise}
-\title{Convert less common strings to other}
+\title{Convert less common strings to other.}
 \usage{
 otherise(string_vec, n_threshold, print_summary = TRUE)
 }
 \arguments{
-\item{print_summary}{}
+\item{string_vec}{Vector of strings.}
+
+\item{n_threshold}{Threshold count below which will be converted to other.}
+
+\item{print_summary}{Prints a summary of operation performed.}
 }
 \value{
 vector of strings
 }
 \description{
-Convert less common strings to other
+Convert less common strings to other.
 }
