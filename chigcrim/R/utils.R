@@ -44,7 +44,8 @@ parse_X <- function(X){
 #' @param strings_as_factors Whether to convert iucr, primary_type,
 #' description and location_description to factors.
 #' @return tibble Data frame of Chicago Crime data.
-load_data <- function(year = NULL, strings_as_factors = TRUE) {
+load_data <- function(year = NULL, strings_as_factors = TRUE,
+                      drop_location = TRUE) {
   # Only accept valid years
   if(!(year %in% 2001:2020)) return("Please choose a year between 2001 and 2020.")
   base_url <- "https://data.cityofchicago.org/resource/ijzp-q8t2.csv"
@@ -66,6 +67,12 @@ load_data <- function(year = NULL, strings_as_factors = TRUE) {
                                           location_description = col_factor()
     ))
   }
+
+  if (drop_location){
+    df %<>% select(-location)
+  }
+
+  # Drop location (note this is redundant lattitude and longitude)
 
   return(df)
 }
