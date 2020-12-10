@@ -123,10 +123,6 @@ sum(duplicated(df$id))
 ## Updated on
 Perhaps the updated_on feature is useful for predicting arrests. In particular, perhaps the lag between the crime and when it was updated is informative:
 ```{r}
-yday_float = function(timestamp){
-  yday(timestamp) + hour(timestamp)/24 + minute(timestamp)/(24*60)
-}
-
 lag = yday_float(df$updated_on)  - yday_float(df$timestamp)
 lag_df = tibble(lag, arrest=df$arrest)
 

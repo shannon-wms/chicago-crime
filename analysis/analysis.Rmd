@@ -1,6 +1,6 @@
 ---
 title: "Analysis"
-output: pdf_document
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -19,79 +19,50 @@ devtools::load_all("../chigcrim/")
 
 ## Load data
 ```{r}
-df <- read_csv("../data/crime-2019.csv", col_types = cols())
-colnames(df) <- str_replace(tolower(colnames(df)), " ", "_")
-
-# sort out dates
-df <- df %>%
-  mutate(timestamp = ymd_hms(mdy_hms(date)),
-         updated_on = ymd_hms(mdy_hms(updated_on))) %>%
-  select(-date)
+df <- load_data(year = 2019, strings_as_factors = FALSE)
 ```
-
 
 ## Feature selection
 Choices:
-- Encode the date as the day in the year (1-365) - This doesn't really look good, so perhaps a tranformation is better
+- Encode the date as the day in the year (1-365) - This doesn't really look good, so perhaps a transformation would be better
 
-- Encode time of day as a float 0-24 (this looks good from a plot of proportion arrested over time).
+- Encode time of day as a float 0-24 (this looks OK from a plot of proportion arrested over time).
 
 - Drop `year` as these are all 2019
 
 - We will drop the `id`s, as it contains unique values
 
-- We will drop `case_numbers`, as it contains almost all unique values
+- We drop `case_number`, as it contains almost all unique values
 
-- Drop `primary_type`, `description`, as these are contained within the `iucr` code.
+- Drop `primary_type`, `description` and `iucr` code. Keep `fbi_code` as an indicator of crime type.
 
 - Assume `updated_on` is not informative (see EDA)
 
-- X and Y coordinates location and latitude and longitude are dropped (a linear relationship does not seem like it would be very useful)
+- X and Y coordinates, latitude and longitude are dropped (a linear relationship does not seem like it would be very useful)
 
-- Community areas will be kept, but other areas (`district`, `beat` and `ward`) are dropped.
-
-- Primary types will be one-hot encoded. Rare primary types will be grouped into one category. IUCR and fbi codes are dropped (which are similar).
-
-- Secondary descriptions of crimes will be ignored (to limit dimensionality)
+- Community areas will be kept, but other areas (`district`, `beat`, `ward` and `block`) are dropped.
 
 - NAs will be dropped
 
-- Ignore block
-
-
 ```{r}
-# Converts less common categories to "OTHER"
-otherise <- function(string_vec, n_threshold, print_summary = TRUE){
-  counts <- table(string_vec)
-  other_names <- names(counts[counts < n_threshold])
-  string_vec[string_vec %in% other_names] <- "OTHER"
-  if (print_summary){
-    print(paste(length(other_names), "out of", length(counts),
-                "categories were converted to OTHER corresponding to",
-                100*length(string_vec[string_vec == "OTHER"])/length(string_vec),
-                "% of observations"))
-  }
-  string_vec
-}
+df$fbi_code <- otherise(df$fbi_code, 500)
+df$location_description <- otherise(df$location_description, 1000)
 
-df$primary_type <- otherise(df$primary_type, 5000)
-df$location_description <- otherise(df$location_description, 5000)
-
-remove_features <- c("id", "year", "case_number", "description", "updated_on",
-                    "location", "latitude", "longitude", "x_coordinate",
-                    "y_coordinate", "iucr", "fbi_code", "timestamp", "block", "district",
-                    "beat", "ward")
+remove_features <- c("id", "year", "case_number", "primary_type", "description",
+                     "iucr", "updated_on", "latitude", "longitude",
+                     "x_coordinate", "y_coordinate", "date",
+                     "district", "beat", "ward", "block")
 
 df <- df %>%
-  mutate(day = yday(df$timestamp),
-         time = hour(df$timestamp) + minute(df$timestamp)/60) %>%
+  mutate(day = yday(df$date),
+         time = hour(df$date) + minute(df$date)/60) %>%
   select(-all_of(remove_features)) %>%
   filter(complete.cases(df))
 
 # Convert to factors
 df <- df %>%
   mutate(location_description = as.factor(location_description),
-         primary_type = as.factor(primary_type),
+         fbi_code = as.factor(fbi_code),
          community_area = as.factor(community_area))
 
 X <- df %>% select(-arrest)
@@ -100,29 +71,9 @@ y <- df$arrest
 lr <- LogisticRegression$new()
 lr$fit(X, y)
 y_hat = lr$predict(X)
-
-
-round(y_hat)
-
-dtypes = sapply(df, typeof)
-allowed_types = c("factor", "integer", "logical", "double")
-any(!(dtypes %in% allowed_types))
-
-
-sapply(as.matrix(df), typeof)
-
-dtypes
-
-as.matrix(df)
-inherits(as.tibble(df), "data.frame")
-
-
-colty <- str(df)
-colty
-#X_subset = X[,3:20]
-
-#lr$grad_log_loss(theta = rep(1, ncol(X_subset)), as.matrix(X_subset), y)
-
-# Grad log
+```
+Calculate proportion classified correctly on the train set:
+```{r}
+sum(round(y_hat) == df$arrest) / length(y_hat)
 ```
 

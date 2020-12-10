@@ -1,5 +1,5 @@
 # Script contains useful general purpose utility functions
-#' @import data.table
+#' @importFrom data.table as.data.table
 #' @importFrom mltools one_hot
 #' @import RSocrata
 #' @import dplyr
@@ -44,7 +44,8 @@ parse_X <- function(X){
 #' @param strings_as_factors Whether to convert iucr, primary_type,
 #' description and location_description to factors.
 #' @return tibble Data frame of Chicago Crime data.
-load_data <- function(year = NULL, strings_as_factors = TRUE) {
+load_data <- function(year = NULL, strings_as_factors = TRUE,
+                      drop_location = TRUE) {
   # Only accept valid years
   if(!(year %in% 2001:2020)) return("Please choose a year between 2001 and 2020.")
   base_url <- "https://data.cityofchicago.org/resource/ijzp-q8t2.csv"
@@ -67,6 +68,49 @@ load_data <- function(year = NULL, strings_as_factors = TRUE) {
     ))
   }
 
+  if (drop_location){
+    df %<>% select(-location)
+  }
+
+  # Drop location (note this is redundant latitude and longitude)
+
   return(df)
+}
+
+
+
+#' Convert less common strings to other.
+#'
+#' @param string_vec Vector of strings.
+#' @param n_threshold Threshold count below which will be converted to other.
+#' @param print_summary Prints a summary of operation performed.
+#'
+#' @return vector of strings
+#' @export
+otherise <- function(string_vec, n_threshold, print_summary = TRUE){
+  counts <- table(string_vec)
+  other_names <- names(counts[counts < n_threshold])
+  string_vec[string_vec %in% other_names] <- "OTHER"
+  if (print_summary){
+    print(paste(length(other_names), "out of", length(counts),
+                "categories were converted to OTHER corresponding to",
+                100*length(string_vec[string_vec == "OTHER"])/length(string_vec),
+                "% of observations"))
+  }
+  string_vec
+}
+
+
+
+#' yday float
+#'
+#' Convert timestamp to float in 1-366
+#' @param timestamp Date in POSIXct
+#'
+#' @return Floating point numbers
+#' @export
+#'
+yday_float = function(timestamp){
+  yday(timestamp) + hour(timestamp)/24 + minute(timestamp)/(24*60)
 }
 
