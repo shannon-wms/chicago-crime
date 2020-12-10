@@ -19,8 +19,11 @@ devtools::load_all("../chigcrim/")
 
 ## Load data
 ```{r}
-df <- read_csv("../data/crime-2019.csv", col_types = cols())
-colnames(df) <- str_replace(tolower(colnames(df)), " ", "_")
+df <- load_data(year = 2019, strings_as_factors = FALSE)
+
+
+
+unique(df$primary_type)
 
 # sort out dates
 df <- df %>%
