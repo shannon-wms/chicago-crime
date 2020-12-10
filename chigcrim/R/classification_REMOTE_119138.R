@@ -33,11 +33,11 @@ sigmoid <- function(z){
 #' lr$predict(X)
 
 LogisticRegression <- R6Class("LogisticRegression", list(
-  lambda <- NULL,
-  solver <- NULL,
-  X <- NULL,
-  y <- NULL,
-  theta <- NULL,
+  lambda <- NULL
+  solver <- NULL
+  X <- NULL
+  y <- NULL
+  theta <- NULL
 
   #' @description
   #' Create new LogisticRegression object.
@@ -60,7 +60,6 @@ LogisticRegression <- R6Class("LogisticRegression", list(
     X <- as.matrix(X)
     n <- length(y)
     y_hat <- sigmoid(X %*% theta)
-    y_hat[which(y_hat == 1)] <- y_hat[which(y_hat == 1)] - 1e-15  # Fix numerical precision errors
     cost <- -1/n * sum((y*log(y_hat) + (1-y)*log(1-y_hat)))
     reg <- self$lambda/2 * sum(theta[-1]^2)
     cost + reg
@@ -83,7 +82,7 @@ LogisticRegression <- R6Class("LogisticRegression", list(
   #' @param y Training data (vector).
   #' @param ... Additional arguments passed to optim.
   fit <- function(X, y, ...){
-    X <- parse_X(X)
+    X <- as.matrix(X)
     self$X <- X
     self$y <- y
     bias <- 1
@@ -105,8 +104,7 @@ LogisticRegression <- R6Class("LogisticRegression", list(
   #' Predict on X.
   #' @param X X training or testing X.
   predict <- function(X){
-    bias <- 1
-    X <- cbind(bias, parse_X(X))
+    X <- as.matrix(cbind(1, X))
     predictions <- as.vector(sigmoid(X %*% self$theta))
     names(predictions) <- rownames(X)
     predictions
