@@ -125,7 +125,7 @@ Fit the object to training data X and y.
 \if{html}{\out{<a id="method-predict"></a>}}
 \if{latex}{\out{\hypertarget{method-predict}{}}}
 \subsection{Method \code{predict()}}{
-Predict on X. (e.g. train X or test X)
+Predict on X.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$predict(X)}\if{html}{\out{</div>}}
 }
@@ -133,7 +133,7 @@ Predict on X. (e.g. train X or test X)
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{X}}{X training data}
+\item{\code{X}}{X training or testing X.}
 }
 \if{html}{\out{</div>}}
 }

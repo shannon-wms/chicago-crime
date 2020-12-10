@@ -60,8 +60,12 @@ LogisticRegression = R6Class("LogisticRegression", list(
     X = as.matrix(X)
     n = length(y)
     y_hat = sigmoid(X %*% theta)
+    y_hat[which(y_hat == 1)] <- y_hat[which(y_hat == 1)] - 1e-15  # Fix numerical precision errors
     cost = -1/n * sum((y*log(y_hat) + (1-y)*log(1-y_hat)))
     reg = self$lambda/2 * sum(theta[-1]^2)
+    if (!is.finite(cost)){
+      browser()
+    }
     cost + reg
   },
 
@@ -73,7 +77,7 @@ LogisticRegression = R6Class("LogisticRegression", list(
   grad_log_loss = function(theta, X, y){
     n = length(y)
     y_hat = sigmoid(X %*% theta)
-    1/n * (t(X) %*% (y_hat - y)) + c(0, self$lambda * theta[-1])
+    grad = 1/n * (t(X) %*% (y_hat - y)) + c(0, self$lambda * theta[-1])
   },
 
   #' @description
@@ -82,7 +86,7 @@ LogisticRegression = R6Class("LogisticRegression", list(
   #' @param y y training data (vector)
   #' @param ... Additional arguments passed to optim
   fit = function(X, y, ...){
-    X = as.matrix(X)
+    X = parse_X(X)
     self$X = X
     self$y = y
     bias = 1
@@ -104,9 +108,13 @@ LogisticRegression = R6Class("LogisticRegression", list(
   #' Predict on X.
   #' @param X X training or testing X.
   predict = function(X){
-    X = as.matrix(cbind(1, X))
+    bias = 1
+    X = cbind(1, parse_X(X))
     predictions = as.vector(sigmoid(X %*% self$theta))
     names(predictions) = rownames(X)
     predictions
   }
 ))
+
+
+
