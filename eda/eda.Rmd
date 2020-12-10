@@ -18,11 +18,13 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 library(tidyverse)
 library(lubridate)
 library(glue)
+library(UpSetR)
 ```
 
 ## Load data
 ```{r}
 df = read_csv("./data/crime-2019.csv", col_types = cols())
+df
 colnames(df) <- str_replace(tolower(colnames(df)), " ", "_")
 
 # sort out dates
@@ -48,6 +50,15 @@ df %>%
   geom_col(aes(x=primary_type, y=log10_count)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
+
+```{r}
+iucr_codes = read_csv("data/iucr_codes.csv")
+iucr_codes
+iucr_codes %>%
+  mutate(description = paste(`PRIMARY DESCRIPTION`, `SECONDARY DESCRIPTION`))
+```
+
+
 ### Date and time
 Over the year:
 ```{r}
@@ -59,7 +70,7 @@ violent = descs[str_detect(descs, "SEX") |
                     str_detect(descs, "HOMICIDE") |
                     str_detect(descs, "VIOLENT") |
                     str_detect(descs, "BATTERY") |
-                    (str_detect(descs, "AGGRAVATED") & !str_detect(descs, "NON-AGGRAVATED"))
+                    (str_detect(descs, "AGG") & !str_detect(descs, "NON-AGG"))
                 ]
 
 df$violent = df$description %in% violent
@@ -72,6 +83,9 @@ df %>%
   tally() %>%
   ggplot(aes(x=yday, y=n, col=violent)) +
     geom_line()
+
+
+df$iucr
 ```
 
 
@@ -154,12 +168,11 @@ Looks like they both tend to be updated at similar times for arrested/not arrest
 ## Missing values
 
 ```{r}
-library(UpSetR)
-p = gg_miss_upset(df)
-
+p = gg_miss_upset(df, nsets=6)
+p
 ```
 
-This plot tells us that only the 5 variables have missing values, and in every observation with missing values, they miss all the 5 variables. Note that other variables `district` and `block`, are not missing to these could be used to impute the missing values. Given they are such a small proportion of the dataset, we could also just drop them. To have a quick look to check they are missing completely at random:
+This plot tells us that only the 6 variables have missing values, and they fall into 3 subsets. Note that other variables `district` and `block`, are not missing to these could be used to impute the missing values. Given they are such a small proportion of the dataset, we could also just drop them. To have a quick look to check they are missing completely at random:
 
 
 ```{r}
@@ -175,7 +188,6 @@ df %>%
   geom_line(aes(y=proportion_missing, x=day, col=arrest), size=0.2)
 ```
 Does not seem to be missing completely at random, but perhaps a small enough part of the data set that we can ignore it anyway.
-
 
 ## Sp
 ```{r}

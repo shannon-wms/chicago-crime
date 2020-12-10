@@ -33,17 +33,17 @@ sigmoid <- function(z){
 #' lr$predict(X)
 
 LogisticRegression <- R6Class("LogisticRegression", list(
-  lambda <- NULL
-  solver <- NULL
-  X <- NULL
-  y <- NULL
-  theta <- NULL
+  lambda = NULL,
+  solver = NULL,
+  X = NULL,
+  y = NULL,
+  theta = NULL,
 
   #' @description
   #' Create new LogisticRegression object.
   #' @param solver "L-BFGS-B", "BFGS" or "CG". Default "L-BFGS-B".
   #' @param lambda regularisation parameter, defualt 0.
-  initialize <- function(solver = "L-BFGS-B", lambda=0){
+  initialize = function(solver = "L-BFGS-B", lambda=0){
     stopifnot(solver %in% c("BFGS", "CG", "L-BFGS-B"))
     stopifnot(lambda >= 0)
 
@@ -56,10 +56,11 @@ LogisticRegression <- R6Class("LogisticRegression", list(
   #' @param theta Coefficients.
   #' @param X Dataframe or matrix.
   #' @param y 0,1 vector.
-  log_loss <- function(theta, X, y){
+  log_loss = function(theta, X, y){
     X <- as.matrix(X)
     n <- length(y)
     y_hat <- sigmoid(X %*% theta)
+    y_hat[which(y_hat == 1)] <- y_hat[which(y_hat == 1)] - 1e-15  # Fix numerical precision errors
     cost <- -1/n * sum((y*log(y_hat) + (1-y)*log(1-y_hat)))
     reg <- self$lambda/2 * sum(theta[-1]^2)
     cost + reg
@@ -70,7 +71,7 @@ LogisticRegression <- R6Class("LogisticRegression", list(
   #' @param theta Coefficients.
   #' @param X Dataframe or matrix.
   #' @param y 0,1 Vector.
-  grad_log_loss <- function(theta, X, y){
+  grad_log_loss = function(theta, X, y){
     n <- length(y)
     y_hat <- sigmoid(X %*% theta)
     1/n * (t(X) %*% (y_hat - y)) + c(0, self$lambda * theta[-1])
@@ -81,8 +82,8 @@ LogisticRegression <- R6Class("LogisticRegression", list(
   #' @param X Training data (dataframe or matrix).
   #' @param y Training data (vector).
   #' @param ... Additional arguments passed to optim.
-  fit <- function(X, y, ...){
-    X <- as.matrix(X)
+  fit = function(X, y, ...){
+    X <- parse_X(X)
     self$X <- X
     self$y <- y
     bias <- 1
@@ -103,17 +104,18 @@ LogisticRegression <- R6Class("LogisticRegression", list(
   #' @description
   #' Predict on X.
   #' @param X X training or testing X.
-  predict <- function(X){
-    X <- as.matrix(cbind(1, X))
+  predict = function(X){
+    bias <- 1
+    X <- cbind(bias, parse_X(X))
     predictions <- as.vector(sigmoid(X %*% self$theta))
     names(predictions) <- rownames(X)
     predictions
   },
-  
+
   #' @description
   #' Print LogisticRegression object.
   #' @param ... Additional arguments passed to print.
-  print <- function(...) {
+  print = function(...) {
     cat("LogisticRegression: \n")
     cat("  head(X) = ", head(self$X, 1), "\n", sep = " ")
     cat("  head(y) = ", head(self$y, 1), "\n", sep = " ")
