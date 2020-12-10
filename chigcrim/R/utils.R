@@ -7,8 +7,6 @@
 #' @import readr
 #' @import lubridate
 NULL
-NULL
-
 
 #' Parse matrix into useful format for ML algorithms
 #'
