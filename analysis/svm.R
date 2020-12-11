@@ -98,7 +98,7 @@ preds4 <- predict(rf1, crime_test)
 confusionMatrix(preds4, as.factor(crime_test$arrest))
 
 
-
+# cv error, trying to make generalisable
 cv_error <- function(model, train_data, train_label, error, folds,...) {
   n <- nrow(train_data)
   parts <- split(sample(1:n), 1:folds)
@@ -107,12 +107,17 @@ cv_error <- function(model, train_data, train_label, error, folds,...) {
   for (i in parts) {
     cv_train <- train_data[-i,]
     cv_test <- train_data[i,]
-    mod1 <- model(data = cv_train, as.formula(paste(train_label, "~ .")), type = "C-classification")
+    mod1 <- model(data = cv_train, as.formula(paste(train_label, "~ .")), ...)
     preds <- predict(mod1, newdata = cv_test)
-    err[j] <- error(preds, cv_test[train_label, ])
+    err[j] <- error(preds, as.logical(as.data.frame(cv_test)[,train_label]))
     j <- j + 1
   }
   return(mean(err))
 }
 
+# Find CV errors of SVM and RF
+CVE_svm <- cv_error(svm, crime_train, "arrest", NormalizedGini, 5, type = "C-classification")
+CVE_rf1 <- cv_error(randomForest, crime_train, "arrest", NormalizedGini, 5, ntree = 300, mtry = 5)
+CVE_rf2 <- cv_error(randomForest, crime_train, "arrest", NormalizedGini, 5, ntree = 1000, mtry = 5)
 
+#less trees has better results
