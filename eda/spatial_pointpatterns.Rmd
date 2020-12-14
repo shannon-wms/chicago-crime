@@ -1,0 +1,74 @@
+---
+title: "Spatial Point Processes"
+author: "Shannon Williams"
+date: "14/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+# Packages
+
+```{r, warning = FALSE, message = FALSE}
+devtools::load_all("chigcrim")
+library(spatstat)
+library(tidyverse)
+library(magrittr)
+library(sf)
+library(RSocrata)
+set.seed(123)
+```
+
+# Data Wrangling
+
+Use a small datset of 10,000 points chosen randomly from the 2019 data.
+
+```{r}
+# Load Chicago crime data from 2019
+df <- load_data(2019, na_omit = TRUE)
+df <- df[sample(dim(df)[1], size = 10000), ]
+
+
+# Load shapefile for community areas to obtain polygon for Chicago boundary
+com_bounds <- st_read("data/community_areas.shp", quiet = TRUE)
+chig_bound <- st_union(com_bounds)
+# Project from WGS84 to planar coordinates
+chig_owin <- chig_bound %>% st_transform(crs = 6345) %>% as.owin()
+
+# Use only a few variates as 'marks'
+df_marks <- df %>% dplyr::select(date, primary_type, arrest, domestic, beat, fbi_code) %>%
+  mutate(time = format(date, "%H:%M:%S"), date = format(date, "%Y/%m/%d"))
+# Use latitude and longitude as coordinates to correspond with Chicago boundary
+coords <- cbind(df$longitude, df$latitude)
+coords_list <- lapply(1:dim(coords)[1], function(i) coords[i, ])
+# Convert to st points and then project to planar coordinates
+st_pts <- lapply(coords_list, st_point)
+st_list <- st_sfc(st_pts, crs = 4326)
+proj_coords <- st_transform(st_list, crs = 6345)
+# Back to a matrix
+proj_mat <- st_geometry(proj_coords) %>% unlist() %>% matrix(ncol = 2, byrow = TRUE) %>% 
+  as_tibble() %>% setNames(c("x", "y"))
+
+plot(chig_owin, main = NULL)
+points(proj_mat, cex = 0.1, col = "red")
+# Note that some points actually lie outside the boundary
+# Remove these points for ease
+inside <- which(inside.owin(proj_mat$x, proj_mat$y, chig_owin))
+proj_mat <- proj_mat[inside, ]
+df_marks <- df_marks[inside, ]
+```
+
+To use spatial point pattern analysis, we use the package **spatstat** and convert the data into a `ppp` object.
+
+```{r}
+chig_ppp <- ppp(x = proj_mat$x, y = proj_mat$y, window = chig_owin, marks = df_marks)
+chig_ppp
+summary(chig_ppp)
+intensity(chig_ppp)
+hist(coords(chig_ppp)$x)
+hist(coords(chig_ppp)$y)
+plot(density(chig_ppp))
+```
