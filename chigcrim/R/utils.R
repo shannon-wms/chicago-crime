@@ -41,39 +41,36 @@ parse_X <- function(X){
 #' Returns a data frame of Chicago Crime data from specified year, or entire dataset
 #' from 2001 to present if no year is specified.
 #' @param year integer in 2001:2020 specifying the desired year.
-#' @param strings_as_factors Whether to convert iucr, primary_type,
-#' description and location_description to factors.
+#' @param strings_as_factors Whether to convert `iucr`, `primary_type`,
+#' `description`, `location_description` and `fbi_code` to factors.
+#' @param drop_location Whether to drop location as it duplicates data in latitude
+#' and longitude.
+#' @param na_omit Whether to omit observations with NA values
 #' @return tibble Data frame of Chicago Crime data.
 load_data <- function(year = NULL, strings_as_factors = TRUE,
-                      drop_location = TRUE) {
+                      drop_location = TRUE, na_omit = FALSE) {
   # Only accept valid years
   if(!(year %in% 2001:2020)) return("Please choose a year between 2001 and 2020.")
   base_url <- "https://data.cityofchicago.org/resource/ijzp-q8t2.csv"
   # Download entire dataset if year not specified
   full_url <- ifelse(!is.null(year), paste0(base_url, "?Year=", as.character(year)), base_url)
   df <- read.socrata(full_url, app_token = "avsRhaZaZTqeJOGhBuFJieRzJ") %>% tibble()
-
+  # Omit observations with NA values
+  if (na_omit) df %<>% na.omit()
   # Convert dots in column names to underscore
   colnames(df) %<>% strsplit(split = "\\.") %>% lapply(paste, collapse = "_")
-
   # Convert character columns (excluding case_number and block) to factor or logical
   df %<>% type_convert(col_types = list(arrest = col_logical(),
                                         domestic = col_logical()))
-
   if (strings_as_factors){
     df %<>% type_convert(col_types = list(iucr = col_factor(),
                                           primary_type = col_factor(),
                                           description = col_factor(),
-                                          location_description = col_factor()
-    ))
+                                          location_description = col_factor(),
+                                          fbi_code = col_factor()))
   }
-
-  if (drop_location){
-    df %<>% select(-location)
-  }
-
-  # Drop location (note this is redundant latitude and longitude)
-
+  # Drop location
+  if (drop_location) df %<>% select(-location)
   return(df)
 }
 
