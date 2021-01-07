@@ -4,6 +4,7 @@ test_that("Lostistic regression == glm logit", {
   # Use mtcars data set and classify as automatic/manual
   X = subset(mtcars, select = c("mpg", "wt"))
   y = mtcars$am
+
   lr=LogisticRegression$new()
   lr$fit(X, y)
 
