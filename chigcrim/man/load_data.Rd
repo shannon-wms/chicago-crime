@@ -4,13 +4,23 @@
 \alias{load_data}
 \title{Download Chicago Crime data using Socrata API}
 \usage{
-load_data(year = NULL, strings_as_factors = TRUE, drop_location = TRUE)
+load_data(
+  year = NULL,
+  strings_as_factors = TRUE,
+  drop_location = TRUE,
+  na_omit = FALSE
+)
 }
 \arguments{
 \item{year}{integer in 2001:2020 specifying the desired year.}
 
-\item{strings_as_factors}{Whether to convert iucr, primary_type,
-description and location_description to factors.}
+\item{strings_as_factors}{Whether to convert `iucr`, `primary_type`,
+`description`, `location_description` and `fbi_code` to factors.}
+
+\item{drop_location}{Whether to drop location as it duplicates data in latitude
+and longitude.}
+
+\item{na_omit}{Whether to omit observations with NA values}
 }
 \value{
 tibble Data frame of Chicago Crime data.

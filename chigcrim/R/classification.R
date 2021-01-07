@@ -24,14 +24,13 @@ sigmoid <- function(z){
 #' @field X Training X (dataframe or matrix).
 #' @field y Training y vector.
 #' @field theta The fitted parameters.
-#'
+#' @export
 #' @examples
 #' X <- subset(mtcars, select = c("mpg", "wt"))
 #' y <- mtcars$am
 #' lr <- LogisticRegression$new()
 #' lr$fit(X, y)
 #' lr$predict(X)
-
 LogisticRegression <- R6Class("LogisticRegression", list(
   lambda = NULL,
   solver = NULL,
