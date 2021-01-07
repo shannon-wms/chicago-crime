@@ -63,7 +63,8 @@ Create new LogisticRegression object.
 \if{html}{\out{<a id="method-log_loss"></a>}}
 \if{latex}{\out{\hypertarget{method-log_loss}{}}}
 \subsection{Method \code{log_loss()}}{
-Computes log loss (with regularisation).
+Computes log loss (with regularisation). Assumes one-hot-encoded
+categorical variables and bias term in X.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$log_loss(theta, X, y)}\if{html}{\out{</div>}}
 }
@@ -73,7 +74,7 @@ Computes log loss (with regularisation).
 \describe{
 \item{\code{theta}}{Coefficients.}
 
-\item{\code{X}}{Dataframe or matrix.}
+\item{\code{X}}{matrix with first column as bias.}
 
 \item{\code{y}}{0,1 vector.}
 }
@@ -85,6 +86,7 @@ Computes log loss (with regularisation).
 \if{latex}{\out{\hypertarget{method-grad_log_loss}{}}}
 \subsection{Method \code{grad_log_loss()}}{
 Computes the gradient of the log loss function (with regularisation).
+Assumes one-hot-encoded categorical variables and bias term in X.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$grad_log_loss(theta, X, y)}\if{html}{\out{</div>}}
 }
@@ -94,7 +96,7 @@ Computes the gradient of the log loss function (with regularisation).
 \describe{
 \item{\code{theta}}{Coefficients.}
 
-\item{\code{X}}{Dataframe or matrix.}
+\item{\code{X}}{matrix with first column as bias.}
 
 \item{\code{y}}{0,1 Vector.}
 }
