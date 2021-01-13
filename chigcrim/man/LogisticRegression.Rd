@@ -7,24 +7,24 @@
 R6 class for Logistic Regression
 }
 \examples{
-X = subset(mtcars, select = c("mpg", "wt"))
-y = mtcars$am
-lr=LogisticRegression$new()
+X <- subset(mtcars, select = c("mpg", "wt"))
+y <- mtcars$am
+lr <- LogisticRegression$new()
 lr$fit(X, y)
 lr$predict(X)
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{lambda}}{Regularisation parameter (defualt=0)}
+\item{\code{lambda}}{Regularisation parameter (defualt=0).}
 
-\item{\code{solver}}{"BFGS", "CG" or "L-BFGS-B"}
+\item{\code{solver}}{"BFGS", "CG" or "L-BFGS-B".}
 
-\item{\code{X}}{Training X (dataframe or matrix)}
+\item{\code{X}}{Training X (dataframe or matrix).}
 
-\item{\code{y}}{Training y vector}
+\item{\code{y}}{Training y vector.}
 
-\item{\code{theta}}{The fitted parameters}
+\item{\code{theta}}{The fitted parameters.}
 }
 \if{html}{\out{</div>}}
 }
@@ -36,6 +36,7 @@ lr$predict(X)
 \item \href{#method-grad_log_loss}{\code{LogisticRegression$grad_log_loss()}}
 \item \href{#method-fit}{\code{LogisticRegression$fit()}}
 \item \href{#method-predict}{\code{LogisticRegression$predict()}}
+\item \href{#method-print}{\code{LogisticRegression$print()}}
 \item \href{#method-clone}{\code{LogisticRegression$clone()}}
 }
 }
@@ -43,7 +44,7 @@ lr$predict(X)
 \if{html}{\out{<a id="method-new"></a>}}
 \if{latex}{\out{\hypertarget{method-new}{}}}
 \subsection{Method \code{new()}}{
-Create new LogisticRegression object
+Create new LogisticRegression object.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$new(solver = "L-BFGS-B", lambda = 0)}\if{html}{\out{</div>}}
 }
@@ -53,7 +54,7 @@ Create new LogisticRegression object
 \describe{
 \item{\code{solver}}{"L-BFGS-B", "BFGS" or "CG". Default "L-BFGS-B".}
 
-\item{\code{lambda}}{regularisation parameter, defualt 0}
+\item{\code{lambda}}{regularisation parameter, defualt 0.}
 }
 \if{html}{\out{</div>}}
 }
@@ -62,7 +63,8 @@ Create new LogisticRegression object
 \if{html}{\out{<a id="method-log_loss"></a>}}
 \if{latex}{\out{\hypertarget{method-log_loss}{}}}
 \subsection{Method \code{log_loss()}}{
-Computes log loss (with regularisation)
+Computes log loss (with regularisation). Assumes one-hot-encoded
+categorical variables and bias term in X.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$log_loss(theta, X, y)}\if{html}{\out{</div>}}
 }
@@ -70,11 +72,11 @@ Computes log loss (with regularisation)
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{theta}}{coefficients}
+\item{\code{theta}}{Coefficients.}
 
-\item{\code{X}}{dataframe or matrix}
+\item{\code{X}}{matrix with first column as bias.}
 
-\item{\code{y}}{0,1 vector}
+\item{\code{y}}{0,1 vector.}
 }
 \if{html}{\out{</div>}}
 }
@@ -83,7 +85,8 @@ Computes log loss (with regularisation)
 \if{html}{\out{<a id="method-grad_log_loss"></a>}}
 \if{latex}{\out{\hypertarget{method-grad_log_loss}{}}}
 \subsection{Method \code{grad_log_loss()}}{
-Computes the gradient of the log loss function (with regularisation)
+Computes the gradient of the log loss function (with regularisation).
+Assumes one-hot-encoded categorical variables and bias term in X.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$grad_log_loss(theta, X, y)}\if{html}{\out{</div>}}
 }
@@ -91,11 +94,11 @@ Computes the gradient of the log loss function (with regularisation)
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{theta}}{coefficients}
+\item{\code{theta}}{Coefficients.}
 
-\item{\code{X}}{dataframe or matrix}
+\item{\code{X}}{matrix with first column as bias.}
 
-\item{\code{y}}{0,1 vector}
+\item{\code{y}}{0,1 Vector.}
 }
 \if{html}{\out{</div>}}
 }
@@ -112,11 +115,11 @@ Fit the object to training data X and y.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{X}}{X training data (dataframe or matrix)}
+\item{\code{X}}{Training data (dataframe or matrix).}
 
-\item{\code{y}}{y training data (vector)}
+\item{\code{y}}{Training data (vector).}
 
-\item{\code{...}}{Additional arguments passed to optim}
+\item{\code{...}}{Additional arguments passed to optim.}
 }
 \if{html}{\out{</div>}}
 }
@@ -134,6 +137,23 @@ Predict on X.
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{X}}{X training or testing X.}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-print"></a>}}
+\if{latex}{\out{\hypertarget{method-print}{}}}
+\subsection{Method \code{print()}}{
+Print LogisticRegression object.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$print(...)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{Additional arguments passed to print.}
 }
 \if{html}{\out{</div>}}
 }

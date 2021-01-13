@@ -24,14 +24,13 @@ sigmoid <- function(z){
 #' @field X Training X (dataframe or matrix).
 #' @field y Training y vector.
 #' @field theta The fitted parameters.
-#'
+#' @export
 #' @examples
 #' X <- subset(mtcars, select = c("mpg", "wt"))
 #' y <- mtcars$am
 #' lr <- LogisticRegression$new()
 #' lr$fit(X, y)
 #' lr$predict(X)
-
 LogisticRegression <- R6Class("LogisticRegression", list(
   lambda = NULL,
   solver = NULL,
@@ -52,12 +51,12 @@ LogisticRegression <- R6Class("LogisticRegression", list(
   },
 
   #' @description
-  #' Computes log loss (with regularisation).
+  #' Computes log loss (with regularisation). Assumes one-hot-encoded
+  #' categorical variables and bias term in X.
   #' @param theta Coefficients.
-  #' @param X Dataframe or matrix.
+  #' @param X matrix with first column as bias.
   #' @param y 0,1 vector.
   log_loss = function(theta, X, y){
-    X <- as.matrix(X)
     n <- length(y)
     y_hat <- sigmoid(X %*% theta)
     y_hat[which(y_hat == 1)] <- y_hat[which(y_hat == 1)] - 1e-15  # Fix numerical precision errors
@@ -68,8 +67,9 @@ LogisticRegression <- R6Class("LogisticRegression", list(
 
   #' @description
   #' Computes the gradient of the log loss function (with regularisation).
+  #' Assumes one-hot-encoded categorical variables and bias term in X.
   #' @param theta Coefficients.
-  #' @param X Dataframe or matrix.
+  #' @param X matrix with first column as bias.
   #' @param y 0,1 Vector.
   grad_log_loss = function(theta, X, y){
     n <- length(y)
