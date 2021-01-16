@@ -36,7 +36,7 @@ NULL
 #' X_test <- matrix(seq(from =-2, to=4, length.out = n_test), nrow=n_test, ncol=1)
 #' y_train <- as.vector(sin(X_train)) + rnorm(n, sd = 0.3)
 #' kr <- KernelRidge$new("rbf", lambda = 1, 3)
-#' kr$fit(X_train = X_train, y_train)
+#' kr$fit(X_train, y_train)
 #' y_hat_rbf <- kr$predict(X_test)
 KernelRidge = R6Class("KernelRidge", public = list(
   kernel = "character",
@@ -166,5 +166,19 @@ KernelRidge = R6Class("KernelRidge", public = list(
   }
 )
 )
+
+#' Mean squared error loss
+#'
+#' @param y_hat Vector of predictions
+#' @param y Vector of observed values
+#'
+#' @return Float of the mean squared error loss
+#' @export
+#'
+#' @examples
+#' squared_error_loss(c(1,2,3), c(2,3,2))
+squared_error_loss <- function(y_hat, y){
+  mean((y_hat - y)^2)
+}
 
 

@@ -2,9 +2,12 @@
 
 export(KernelRidge)
 export(LogisticRegression)
+export(cv_R6)
+export(cv_R6_k_fold)
 export(otherise)
 export(parse_X)
 export(sigmoid)
+export(squared_error_loss)
 export(yday_float)
 import(RSocrata)
 import(dplyr)
