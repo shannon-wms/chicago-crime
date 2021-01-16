@@ -7,13 +7,13 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Predicting if a suspect is arrested
-Predicting if a suspect is arrested is a binary classification problem. In order to get a baseline, we will first consider logistic regression. This has the assumption that the data is independent and identically distributed, which likely is not the case. However, it gives us a baseline against which further analysis can be conducted.
-
 ## Imports
 ```{r}
 library(tidyverse)
+library(data.table)
 library(lubridate)
+library(caret)
+
 devtools::load_all("../chigcrim/")
 ```
 
@@ -22,9 +22,13 @@ devtools::load_all("../chigcrim/")
 df <- load_data(year = 2019, strings_as_factors = FALSE)
 ```
 
+
+# Predicting if a suspect is arrested
+Predicting if a suspect is arrested is a binary classification problem. Here logistic regression will be used to perform binary classification. This has the assumption that the data is independent and identically distributed, which likely is not the case.
+
 ## Feature selection
 Choices:
-- Encode the date as the day in the year (1-365) - This doesn't really look good, so perhaps a transformation would be better
+- Encode the date as the day in the year (1-365)
 
 - Encode time of day as a float 0-24 (this looks OK from a plot of proportion arrested over time).
 
@@ -64,16 +68,160 @@ df <- df %>%
   mutate(location_description = as.factor(location_description),
          fbi_code = as.factor(fbi_code),
          community_area = as.factor(community_area))
+```
 
+Run logistic-regression with cross-validation. Due to the size of the data set, running several folds would take a while so only a single fold is used.
+```{r}
 X <- df %>% select(-arrest)
 y <- df$arrest
 
+n_test <- round(0.2*nrow(X))
+test_idxs <- sample(1:nrow(X), n_test)
+
+X_train <- X[-test_idxs, ]
+X_test <- X[test_idxs, ]
+y_train <- y[-test_idxs]
+y_test <- y[test_idxs]
+
 lr <- LogisticRegression$new()
-lr$fit(X, y)
-y_hat = lr$predict(X)
+lr$fit(X_train, y_train)
+y_hat <- lr$predict(X_test)
 ```
-Calculate proportion classified correctly on the train set:
+
+We can analyse the results of the classification using a confusion matrix:
 ```{r}
-sum(round(y_hat) == df$arrest) / length(y_hat)
+y_hat <- round(y_hat)
+y_hat <- as.logical(y_hat)
+
+confusionMatrix(as.factor(y_hat), as.factor(y_test))
+```
+
+
+# Predicting number of crimes using kernel ridge regression
+Another question is whether the number of crimes on particular days can be estimated. Below, kernel ridge regression is used to predict the number of crimes on randomly held out days. For this we need to group the data frame so that each row is a day. We can do this over multiple years quite easily, as the data is summarised into counts for each day.
+```{r}
+# Can use below commented out for other years
+# df <- load_data(strings_as_factors = FALSE)
+# df <- fread("../data/crimes-2001-present.csv", select = c("Date"))
+
+# df <- df %>%
+#   mutate(date = as.Date(mdy_hms(Date)),
+#          day = yday(date),
+#          year = year(date)) %>%
+#   select(-Date) %>%
+#   group_by(date, day, year) %>%
+#   tally(name = "n_crimes")
+
+# df$day_int <- 1:nrow(df)
+
+df <- df %>%
+  select(day) %>%
+  group_by(day) %>%
+  tally(name = "n_crimes")
+```
+
+We can use cross-validation to fit the hyperparameters. For example, I will use it below to choose the degree when using a polynomial kernel, and the bandwidth of the RBF kernel. Here, I will use 5-fold cross-validation.
+```{r}
+X <- as.matrix(df$day)
+X <- scale(X)
+y <- df$n_crimes
+
+degrees <- c(1, 2, 3, 4, 5, 6)
+
+kr <- KernelRidge$new("polynomial", lambda = 10, 2, degrees[1])
+
+mse_vec <- c()
+set.seed(1)
+for (i in 1:length(degrees)){
+  kr <- KernelRidge$new("polynomial", lambda = 10, 2, degrees[i])
+  mse <- cv_R6_k_fold(kr, X, y, squared_error_loss, 5)
+  mse_vec <- c(mse_vec, mse)
+}
+
+polynomial_results <- data.frame(degree = degrees, mse = mse_vec)
+
+bandwidth <- c(0.1, 0.5, 1, 5, 10, 50, 100)
+
+mse_vec <- c()
+set.seed(2)
+for (b in 1:length(bandwidth)){
+  kr = KernelRidge$new("rbf", lambda = 0.001, b)
+  mse <- cv_R6_k_fold(kr, X, y, squared_error_loss, 5)
+  mse_vec <- c(mse_vec, mse)
+}
+
+rbf_results <- data.frame(bandwidth, mse = mse_vec)
+
+```
+
+
+```{r}
+ggplot(polynomial_results) +
+  geom_line(aes(x = degree, y = mse))
+```
+Using a polynomial of degree 4 seems reasonable.
+
+
+```{r}
+ggplot(rbf_results) +
+  geom_line(aes(x = bandwidth, y = mse)) +
+  scale_x_log10()
+```
+
+The best choice of bandwidth seems to be inconsistent. This is likely due to the fact that tighter bandwidths can better exploit local data points and autocorrelation, but broader bandwidths are less likely to overfit. We can plot the prediction functions for these models using the optimal parameters suggested from the cross-validation results:
+
+```{r}
+X <- as.matrix(df$day)
+X <- scale(X)
+y <- df$n_crimes
+
+# Using whole data set
+kr_p = KernelRidge$new("polynomial", lambda = 10, 2, 4)
+kr_p$fit(X, y)
+y_hat_poly = kr_p$predict(X)
+
+kr_r = KernelRidge$new("rbf", lambda = 0.001, 1)
+kr_r$fit(X, y)
+y_hat_rbf = kr_r$predict(X)
+
+# Plot output
+data = data.frame(x = df$day, y=y)
+predictions = tibble(x = rep(df$day, 2),
+                     y = c(y_hat_poly, y_hat_rbf),
+                     kernel = rep(c("polynomial", "rbf"), each=length(X)))
+
+p <- ggplot(data, aes(x, y)) + 
+  geom_point() +
+  geom_line(data = predictions, aes(x, y, colour=kernel), size = 1) +
+  labs(x = "Day of 2019", y = "Number of crimes")
+p
+```
+We can see that both the polynomial and RBF kernel give reasonable prediction functions. The RBF function appears to overfit to noise in the dataset. However, it is worth noting that perhaps the small bandwidth better allows the prediction function to better utilise autocorrelation between consecutive days. This is supported by the fact the RBF function had a lower mean square error 
+
+It is worth noting that this method is likely most useful for predicting crimes within a particular day by interpolation. Unfortunately these methods likely are not particularly useful for forecasting future crimes. We can see why this is if we extend the prediction function:
+
+```{r}
+X_extended <- 366:(366+100)
+X_extended_scaled <- (X_extended - attributes(X)$`scaled:center`) / attributes(X)$`scaled:scale`
+  
+y_hat_poly <- kr_p$predict(as.matrix(X_extended_scaled))
+y_hat_rbf <- kr_r$predict(as.matrix(X_extended_scaled))
+
+df_extended <- data.frame(
+  y_hat = c(y_hat_poly, y_hat_rbf), day = rep(X_extended, 2),
+  kernel = rep(c("polynomial", "rbf"), each = length(X_extended_scaled))
+)
+
+p +
+  geom_line(data = df_extended, aes(day, y_hat, col = kernel))
+```
+The polynomial function often tends to oscillate (particularly for high degrees) or go off to extreme values when extrapolating, whereas the RBF kernel tends to predict similar values to the nearest points. For this reason, other methods, such as generalised additive models (GAMs) are better suited for extrapolating results into the future.
+
+### Predicting a particular months crimes
+Try with different polynomial degrees and rbf. Try random month use year ahead data.
+
+We can try to use these 
+```{r}
+
 ```
 
