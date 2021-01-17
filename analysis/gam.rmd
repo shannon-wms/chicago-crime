@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 ```
 
 ## Imports
@@ -16,7 +17,7 @@ library(mgcv)
 library(tidyverse)
 library(lubridate)
 library(spatstat)
-devtools::load_all("../chigcrim/")
+devtools::load_all("chigcrim/")
 ```
 
 ## Data
@@ -63,7 +64,7 @@ crime_test %<>%
 
 
 # List of features to use in GAM
-keep_features <- c("month", "year", "day","date", "community_area", 
+keep_features <- c("month", "week", "year", "day", "date", "community_area", 
                    "fbi_code", "yday")
 
 # Prep data for use in GAM
@@ -207,3 +208,54 @@ plot(train_dat$date[-1], train_dat$n[-1] - predict(gam5, type = "response"))
 ```
 
 # Discrete Spatial Data
+
+```{r, cache = TRUE}
+library(sf)
+# Load the community areas boundaries
+com_bounds <- st_read("data/community_areas.shp", quiet = TRUE)
+com_bounds %<>% arrange(as.integer(area_numbe))
+com_bounds
+# Create a neighbours list
+com_nb <- spdep::poly2nb(com_bounds, row.names = com_bounds$community)
+names(com_nb) <- attr(com_nb, "region.id")
+coords <- st_coordinates(st_centroid(st_geometry(com_bounds)))
+plot(st_geometry(com_bounds), border = "grey")
+plot(com_nb, coords, add = TRUE)
+# Construct training data set
+spatial_dat <- gam_train %>% 
+  mutate(community_area = factor(community_area)) %>%
+  count(week, year, community_area) %>%
+  arrange(year, week, community_area)
+# Train GAM
+ctrl <- gam.control(nthreads = 8)
+gam_spat <- gam(n ~ s(as.numeric(week), bs = "cc") + 
+      s(community_area, bs = "mrf", xt = list(nb = com_nb)),
+    data = spatial_dat, family = "poisson", control = ctrl)
+summary(gam_spat)
+```
+
+```{r}
+library(plotly)
+plot_data <- spatial_dat %>% filter(year == 2016, week == 1)
+plot_data %<>% mutate(fit = predict(gam_spat, newdata = plot_data, type = "response")) %>%
+  select(community_area, n, fit)
+plot_data <- com_bounds %>% left_join(plot_data, by = c("area_numbe" = "community_area"))
+
+gglayers <- list(ggtitle("Actual Counts of Crime in Chicago"),
+                 colorspace::scale_fill_continuous_sequential(5, palette = "Inferno"),
+                 theme_void(),
+                 guides(fill = guide_colorbar(title = "Crime Count")))
+p <- ggplot(data = plot_data) +
+  geom_sf(aes(fill = n, text = paste0(community, ": ", n))) +
+  gglayers
+p %>% ggplotly(tooltip = "text") %>% 
+  style(hoverlabel = list(bgcolor = "white"), 
+        hoveron = "fill", traces = seq.int(2, length(p$x$data)))
+
+p1 <- ggplot(data = plot_data) +
+  geom_sf(aes(fill = fit, text = paste0(community, ": ", fit))) +
+  gglayers
+p1 %>% ggplotly(tooltip = "text") %>% 
+  style(hoverlabel = list(bgcolor = "white"), 
+        hoveron = "fill", traces = seq.int(2, length(p$x$data)))
+```
