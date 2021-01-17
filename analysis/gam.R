@@ -35,8 +35,6 @@ crime_train$location_description <- otherise(as.character(crime_train$location_d
 keep_features <- c("primary_type", "location_description", "arrest", 
                    "domestic", "month", "year", "day","date", "community_area", "fbi_code", "yday")
 
-
-
 # Prep data for use in GAM
 crime_train <- crime_train %>% select(keep_features) %>% na.omit(crime_dat) %>% 
   mutate(fbi_code = as.factor(fbi_code)) %>% mutate(community_area = as.factor(community_area)) %>%
@@ -77,4 +75,17 @@ gam2 <- gam(n ~ as.numeric(n_pre) + s(as.numeric(yday), bs = "cc") +
 max(abs(predict(gam2, type = "response") - new_data[new_data$date != "2016-01-01",]$n))
 plot(new_data[new_data$date != "2016-01-01",]$n, predict(gam2, type = "response"))
 abline(a = 0, b = 1, col = "red")
+
 summary(gam2)
+
+glm1 <- glm(n ~ as.numeric(n_pre) + as.numeric(yday) + 
+              as.factor(year) + as.factor(fbi_code) + as.factor(community_area), data = new_data)
+max(abs(predict(glm1, type = "response") - new_data[new_data$date != "2016-01-01",]$n))
+plot(new_data[new_data$date != "2016-01-01",]$n, predict(glm1, type = "response"))
+abline(a = 0, b = 1, col = "red")
+
+
+plot(all_dat$date, all_dat$n, xlab = "Date", ylab = "Daily crimes")
+points(all_dat$date, predict(gam1, type = "response", newdata = all_dat), col = c(rep("red", nrow(train_dat)), rep("blue", nrow(test_dat))))
+abline(v = date("2019-01-01"), lty = "dashed")
+
