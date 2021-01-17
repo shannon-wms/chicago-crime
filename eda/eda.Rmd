@@ -19,6 +19,8 @@ library(tidyverse)
 library(lubridate)
 library(glue)
 library(UpSetR)
+library(naniar)
+devtools::load_all("chigcrim")
 ```
 
 ## Load data
@@ -51,41 +53,26 @@ df %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
-```{r}
-iucr_codes = read_csv("data/iucr_codes.csv")
-iucr_codes
-iucr_codes %>%
-  mutate(description = paste(`PRIMARY DESCRIPTION`, `SECONDARY DESCRIPTION`))
-```
-
-
 ### Date and time
 Over the year:
 ```{r}
-descs = unique(df$description)
+# This might not be perfect but looks pretty good.
+violent_queries <- c("SEX", "ABUSE", "HOMICIDE", "VIOLENT",
+                     "BATTERY", "AGG ", "AGGRAVATED")
 
-# This might not be perfect but looks pretty good. Might be able to instead use IUCR code?
-violent = descs[str_detect(descs, "SEX") |
-                    str_detect(descs, "ABUSE") |
-                    str_detect(descs, "HOMICIDE") |
-                    str_detect(descs, "VIOLENT") |
-                    str_detect(descs, "BATTERY") |
-                    (str_detect(descs, "AGG") & !str_detect(descs, "NON-AGG"))
-                ]
+df$description <- paste(df$description, df$primary_type)
 
-df$violent = df$description %in% violent
 
-yday(df$timestamp)
+df$is_violent <- str_detect(df$description,
+                      pattern = paste(violent_queries, collapse = "|")) 
 
 df %>%
   mutate(yday = yday(timestamp)) %>%
-  group_by(yday, violent) %>%
+  group_by(yday, is_violent) %>%
   tally() %>%
-  ggplot(aes(x=yday, y=n, col=violent)) +
+  ggplot(aes(x=yday, y=n, col=is_violent)) +
     geom_line()
 
-
-df$iucr
 ```
 
 
@@ -94,7 +81,7 @@ Over 24 hour period:
 df$hour = hour(df$timestamp) + minute(df$timestamp)/60
 
 df %>%
-  ggplot(aes(x=hour, col=violent)) +
+  ggplot(aes(x=hour, col=is_violent)) +
     geom_histogram(bins=24) +
     scale_x_continuous(breaks = seq(0,24, 2))
 ```
@@ -159,6 +146,7 @@ df %>%
   geom_col(aes(x=updated_hour, y=proportion)) +
   facet_wrap(~arrest, scales = "free")
 ```
+
 Looks like they both tend to be updated at similar times for arrested/not arrested.
 
 ## Missing values

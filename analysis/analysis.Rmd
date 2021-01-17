@@ -71,7 +71,7 @@ df <- df %>%
 ```
 
 Run logistic-regression with cross-validation. Due to the size of the data set, running several folds would take a while so only a single fold is used.
-```{r}
+```{r time_it=TRUE}
 X <- df %>% select(-arrest)
 y <- df$arrest
 
@@ -83,8 +83,8 @@ X_test <- X[test_idxs, ]
 y_train <- y[-test_idxs]
 y_test <- y[test_idxs]
 
-lr <- LogisticRegression$new()
-lr$fit(X_train, y_train)
+lr <- LogisticRegression$new(solver = "BFGS")
+lr$fit(X_train, y_train, control = list(maxit=1000, reltol = 1e-4))
 y_hat <- lr$predict(X_test)
 ```
 
@@ -97,131 +97,251 @@ confusionMatrix(as.factor(y_hat), as.factor(y_test))
 ```
 
 
-# Predicting number of crimes using kernel ridge regression
-Another question is whether the number of crimes on particular days can be estimated. Below, kernel ridge regression is used to predict the number of crimes on randomly held out days. For this we need to group the data frame so that each row is a day. We can do this over multiple years quite easily, as the data is summarised into counts for each day.
+# Interpolating number of crimes using kernel ridge regression
+Another question is whether the number of crimes on particular days can be estimated. A simple way to do this is to use a single feature, the week, and to interpolate between the points using kernel ridge regression. The kernel ridge regression implementation includes a linear kernel (equivalent to ridge regression), a polynomial kernel, and a radial basis function kernel. As the relationship complex and non-linear, only the radial basis function feature transform will be considered here.
+
+### Sort out data set
 ```{r}
-# Can use below commented out for other years
-# df <- load_data(strings_as_factors = FALSE)
-# df <- fread("../data/crimes-2001-present.csv", select = c("Date"))
-
-# df <- df %>%
-#   mutate(date = as.Date(mdy_hms(Date)),
-#          day = yday(date),
-#          year = year(date)) %>%
-#   select(-Date) %>%
-#   group_by(date, day, year) %>%
-#   tally(name = "n_crimes")
-
-# df$day_int <- 1:nrow(df)
+df <- fread("../data/crimes-2001-present.csv", select = c("Date"))
 
 df <- df %>%
-  select(day) %>%
-  group_by(day) %>%
+  mutate(date = as.Date(mdy_hms(Date))) %>%
+  select(-Date) %>%
+  # filter(date >= "2015-01-01") %>% # Last 5 years
+  mutate(week = week(date),
+         year = year(date)) %>%
+  filter(week != 53)  # 53rd "week" does not contain 7 days
+
+df <- df %>%
+  group_by(week, year) %>%
+  mutate(week_start = min(date))
+
+df <- df %>%
+  group_by(week, week_start, year) %>%
   tally(name = "n_crimes")
+
+df <- df[order(df$year, df$week),]
+df$cumulative_week <- 1:nrow(df)
 ```
 
-We can use cross-validation to fit the hyperparameters. For example, I will use it below to choose the degree when using a polynomial kernel, and the bandwidth of the RBF kernel. Here, I will use 5-fold cross-validation.
-```{r}
-X <- as.matrix(df$day)
+
+
+
+### Cross-validation
+Below I will use 5-fold cross validation to choose the bandwidth hyperparameter for the radial basis function kernel.
+```{r message = FALSE}
+X <- as.matrix(df$cumulative_week)
 X <- scale(X)
 y <- df$n_crimes
 
-degrees <- c(1, 2, 3, 4, 5, 6)
-
-kr <- KernelRidge$new("polynomial", lambda = 10, 2, degrees[1])
-
-mse_vec <- c()
-set.seed(1)
-for (i in 1:length(degrees)){
-  kr <- KernelRidge$new("polynomial", lambda = 10, 2, degrees[i])
-  mse <- cv_R6_k_fold(kr, X, y, squared_error_loss, 5)
-  mse_vec <- c(mse_vec, mse)
-}
-
-polynomial_results <- data.frame(degree = degrees, mse = mse_vec)
-
-bandwidth <- c(0.1, 0.5, 1, 5, 10, 50, 100)
+bandwidth <- c(0.1, 1, 5, 10, 100)
 
 mse_vec <- c()
 set.seed(2)
-for (b in 1:length(bandwidth)){
-  kr = KernelRidge$new("rbf", lambda = 0.001, b)
+for (i in 1:length(bandwidth)){
+  kr = KernelRidge$new("rbf", lambda = 0.001, bandwidth[i])
   mse <- cv_R6_k_fold(kr, X, y, squared_error_loss, 5)
   mse_vec <- c(mse_vec, mse)
+  
+  # Save best model
+  if (mse == min(mse_vec)){
+    kr_best <- kr$clone(deep=TRUE)
+  }
 }
 
 rbf_results <- data.frame(bandwidth, mse = mse_vec)
 
-```
+rmse <- sqrt(rbf_results$mse[rbf_results$bandwidth == kr_best$A])
+print(sprintf("Optimal bandwidth found: %s", kr_best$A))
+print(sprintf("Which had root mean square error: %s", rmse))
 
-
-```{r}
-ggplot(polynomial_results) +
-  geom_line(aes(x = degree, y = mse))
-```
-Using a polynomial of degree 4 seems reasonable.
-
-
-```{r}
 ggplot(rbf_results) +
   geom_line(aes(x = bandwidth, y = mse)) +
-  scale_x_log10()
+  scale_x_log10() +
+  scale_y_log10()
 ```
 
-The best choice of bandwidth seems to be inconsistent. This is likely due to the fact that tighter bandwidths can better exploit local data points and autocorrelation, but broader bandwidths are less likely to overfit. We can plot the prediction functions for these models using the optimal parameters suggested from the cross-validation results:
+A bandwidth of `r kr_best$A` seems reasonable, gave the lowest cross-validation error. As this is single dimensional we can plot the prediction function:
 
 ```{r}
-X <- as.matrix(df$day)
-X <- scale(X)
-y <- df$n_crimes
-
-# Using whole data set
-kr_p = KernelRidge$new("polynomial", lambda = 10, 2, 4)
-kr_p$fit(X, y)
-y_hat_poly = kr_p$predict(X)
-
-kr_r = KernelRidge$new("rbf", lambda = 0.001, 1)
-kr_r$fit(X, y)
-y_hat_rbf = kr_r$predict(X)
+y_hat = kr_best$predict(X)
 
 # Plot output
-data = data.frame(x = df$day, y=y)
-predictions = tibble(x = rep(df$day, 2),
-                     y = c(y_hat_poly, y_hat_rbf),
-                     kernel = rep(c("polynomial", "rbf"), each=length(X)))
-
-p <- ggplot(data, aes(x, y)) + 
-  geom_point() +
-  geom_line(data = predictions, aes(x, y, colour=kernel), size = 1) +
-  labs(x = "Day of 2019", y = "Number of crimes")
+df$y_hat <- y_hat
+df
+p <- ggplot(df) + 
+  geom_point(aes(x = week_start, y = n_crimes)) +
+  geom_line(aes(x = week_start, y = y_hat), colour = "steelblue2", size = 1) +
+  labs(x = "Year", y = "Number of crimes")
 p
 ```
-We can see that both the polynomial and RBF kernel give reasonable prediction functions. The RBF function appears to overfit to noise in the dataset. However, it is worth noting that perhaps the small bandwidth better allows the prediction function to better utilise autocorrelation between consecutive days. This is supported by the fact the RBF function had a lower mean square error 
+Another option that has not been considered here is using a trigonometric transform of the data (with a period of a year), to try and capture the cycles with a simpler model.
 
-It is worth noting that this method is likely most useful for predicting crimes within a particular day by interpolation. Unfortunately these methods likely are not particularly useful for forecasting future crimes. We can see why this is if we extend the prediction function:
+It is worth noting that whilst useful for interpolation, kernel ridge regression with a radial basis function kernel would have limited utility for forecasting crimes for into the future. We can see why this is if we try to extrapolate using these this model:
 
 ```{r}
-X_extended <- 366:(366+100)
-X_extended_scaled <- (X_extended - attributes(X)$`scaled:center`) / attributes(X)$`scaled:scale`
+start_week_date <- max(df$week_start) + 7
+start_week_int <- max(df$cumulative_week) + 1
   
-y_hat_poly <- kr_p$predict(as.matrix(X_extended_scaled))
-y_hat_rbf <- kr_r$predict(as.matrix(X_extended_scaled))
+extra_dates <- seq(ymd(start_week_date),ymd(start_week_date + 365*4),
+                   by = '1 week')
 
-df_extended <- data.frame(
-  y_hat = c(y_hat_poly, y_hat_rbf), day = rep(X_extended, 2),
-  kernel = rep(c("polynomial", "rbf"), each = length(X_extended_scaled))
-)
+extra_X <- start_week_int:(start_week_int+length(extra_dates)-1)
+extra_X <- (extra_X - attributes(X)$`scaled:center`) /
+  attributes(X)$`scaled:scale`
 
+extra_y_hat <- kr_best$predict(as.matrix(extra_X))
+
+
+extra_df <- tibble(extra_dates, extra_y_hat)
 p +
-  geom_line(data = df_extended, aes(day, y_hat, col = kernel))
+  geom_line(data = extra_df, aes(extra_dates, extra_y_hat), colour = "steelblue2")
 ```
-The polynomial function often tends to oscillate (particularly for high degrees) or go off to extreme values when extrapolating, whereas the RBF kernel tends to predict similar values to the nearest points. For this reason, other methods, such as generalised additive models (GAMs) are better suited for extrapolating results into the future.
 
-### Predicting a particular months crimes
-Try with different polynomial degrees and rbf. Try random month use year ahead data.
+The cycles are captured solely due to being able to interpolate locally between points. Hence, when extrapolating with a radial basis function kernel, no cycles are predicted, so the out-of-sample accuracy would drop substantially.
 
-We can try to use these 
+### Predict number of crimes in a particular month for a particular location
+The previous example used a single dimensional feature vector. We can also apply it to more complicated problems. Here we will consider the problem of predicting the number of crimes in a given month, for different community areas. In order to make use of the spatial aspect of the data, the position of a community area is approximated using the mean x and y coordinates for crimes within that community.
+
+
 ```{r}
+# Can use below but slow so better to download data set from website
+# df <- load_data(strings_as_factors = FALSE)
+
+df <- fread("../data/crimes-2001-present.csv",
+             select = c("Date", "X Coordinate", "Community Area",
+                        "Y Coordinate"))
+
+colnames(df) <- str_replace(tolower(colnames(df)), " ", "_")
+```
+
+
+
+```{r}
+df <- df %>%
+  mutate(date = as.Date(mdy_hms(date))) %>%
+  mutate(year = year(date),
+         month = month(date)) %>%
+  drop_na()
+df
+df %>%
+  group_by(community_area) %>%
+  mutate(x_coordinate = mean(x_coordinate),
+         y_coordinate = mean(y_coordinate)) %>%
+  ungroup() %>%
+  group_by(c(community_area, year, month)) %>%   ### LEFT OFF HERE
+  summarise(tally())
+
+
+
+
 
 ```
+
+
+```{r}
+df
+```
+
+
+```{r}
+df
+df %>%
+  mutate()
+
+Date(mdy_hms(df$date[1])
+
+df$date <- Date(mdy_hms(df$date))
+df$date
+```
+
+
+```{r}
+df <- load_data(year = 2019, strings_as_factors = FALSE)
+```
+
+
+```{r}
+df <- df %>%
+  drop_na() %>%
+  mutate(month = month(date)) %>%
+  select(c(x_coordinate, community_area, y_coordinate, month)) %>%
+  group_by(community_area) %>%
+  mutate(x_coordinate = mean(x_coordinate),
+         y_coordinate = mean(y_coordinate)) %>%  
+  group_by(community_area, month, x_coordinate, y_coordinate) %>%
+  summarise(n_crimes = n(), .groups = "drop")
+```
+
+
+
+
+```{r}
+X <- df %>% select(-n_crimes) %>% as.matrix()
+y <- df$n_crimes
+
+X <- scale(X)
+# X <- X[1:500, ]
+# y <- y[1:500]
+
+library(tictoc)
+tic()
+bandwidth <- c(0.1, 1, 10, 100)
+errors <- c()
+for (i in 1:length(bandwidth)){
+  kr <- KernelRidge$new("rbf", lambda = 0.001, bandwidth[i])
+  err <- cv_R6(kr, X, y, squared_error_loss, 0.2)
+  errors <- c(errors, err)
+  print(i)
+}
+toc()
+
+ggplot() +
+  geom_line(aes(x=bandwidth, y=errors)) +
+  scale_x_log10()
+
+```
+
+
+```{r}
+X <- df %>% select(-n_crimes) %>% as.matrix()
+y <- df$n_crimes
+
+
+tic()
+kr <- KernelRidge$new("rbf", lambda = 0.001, 1)
+cv_R6(kr, X, y, squared_error_loss, 0.2)
+toc()
+```
+
+
+Technically calculating the mean coordinates like this (which will include values from the test set), could cause data leakage, but it likely does not matter (similar to scaling using the whole data set).
+
+
+
+
+#########
+Could use extra data of population size?
+
+# Include size of community areas ???
+```{r}
+df <- df %>%
+  mutate(date = as.Date(mdy_hms(date))) %>%
+  filter(date >= "2019-01-01") %>% # Last 5 years
+  mutate(year = year(date),
+         month = month(date),
+         description = paste(primary_type, description)) %>%
+  select(-primary_type) %>%
+  drop_na()
+df
+df <- df %>%
+  group_by(community_area) %>%
+  mutate(x_center = mean(x_coordinate), y_center = mean(y_coordinate)) #%>%
+  summarise(n_crimes = n(), .groups = c(month, year, community_area, x_center, y_center))
+
+
+
+
+```
+
 
