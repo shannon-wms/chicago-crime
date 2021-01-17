@@ -24,17 +24,18 @@ devtools::load_all("../chigcrim/")
 For the training data we will use historical data from 2016 - 2018. We will then predict on the data from 2019 to test the model.
 ```{r}
 # Load training data
-crime_2016 <- load_data(2016)
-crime_2017 <- load_data(2017)
-crime_2018 <- load_data(2018)
+crime_2016 <- load_data(2016, strings_as_factors = TRUE)
+crime_2017 <- load_data(2017, strings_as_factors = TRUE)
+crime_2018 <- load_data(2018, strings_as_factors = TRUE)
 
-crime_train <- rbind(crime_2016, crime_2017, crime_2018)
+# bind_rows faster than rbind
+crime_train <- bind_rows(crime_2016, crime_2017, crime_2018)
 
 ```
 
 ```{r}
 # Load test data
-crime_2019 <- load_data(2019)
+crime_2019 <- load_data(2019, strings_as_factors = TRUE)
 
 crime_test <- crime_2019
 ```
@@ -43,45 +44,45 @@ It is then necessary to prepare the data for its' use within the Generalised Add
 
 ```{r}
 # Extract useful information from the date
-crime_train <- crime_train %>%
-  mutate(month = factor(month(ymd_hms(date, tz = "GMT"))),
-         day = factor(day(ymd_hms(date, tz = "GMT"))),
-         hour = factor(hour(ymd_hms(date, tz = "GMT"))),
-         yday = (yday(ymd_hms(date))),
-         date = date(ymd_hms(date))) 
+# Include week for later use
+crime_train %<>%
+  mutate(month = factor(month(date)),
+         week = factor(week(date)),
+         day = factor(day(date)),
+         hour = factor(hour(date)),
+         yday = yday(date),
+         date = date(date)) 
 
-crime_test <- crime_test %>%
-  mutate(month = factor(month(ymd_hms(date, tz = "GMT"))),
-         day = factor(day(ymd_hms(date, tz = "GMT"))),
-         hour = factor(hour(ymd_hms(date, tz = "GMT"))),
-         yday = (yday(ymd_hms(date))),
-         date = date(ymd_hms(date))) 
+crime_test %<>%
+  mutate(month = factor(month(date)),
+         week = factor(month(date)),
+         day = factor(day(date)),
+         hour = factor(hour(date)),
+         yday = yday(date),
+         date = date(date)) 
 
 
 # List of features to use in GAM
-keep_features <- c("month", "year", "day","date", "community_area", "fbi_code", "yday")
+keep_features <- c("month", "year", "day","date", "community_area", 
+                   "fbi_code", "yday")
 
 # Prep data for use in GAM
-crime_train <- crime_train %>% select(keep_features) %>% na.omit(crime_dat) %>% 
-  mutate(fbi_code = as.factor(fbi_code)) %>% mutate(community_area = as.factor(community_area)) %>%
+# Use all_of(keep_features) to suppress warning message
+gam_train <- crime_train %>% select(all_of(keep_features)) %>% na.omit() %>% 
   mutate(day = as.numeric(day))
 
-crime_test <- crime_test %>% select(keep_features) %>% na.omit(crime_dat) %>% 
-  mutate(fbi_code = as.factor(fbi_code)) %>% mutate(community_area = as.factor(community_area)) %>%
+gam_test <- crime_test %>% select(all_of(keep_features)) %>% na.omit() %>% 
   mutate(day = as.numeric(day))
 
-crime_train
+gam_train
 ```
 
-We are interested in predicting the daily number of crimes, each row represents a crime thus we need to sum the rows for each day to get the number of crimes. We can use the `aggregate` function to achieve this. Later we will look at breaking down the data further to predict how many of each type of crime (by FBI code) will occur in each commmunity area on a given day.
+We are interested in predicting the daily number of crimes, each row represents a crime thus we need to sum the rows for each day to get the number of crimes. We can use the `count` function to achieve this. Later we will look at breaking down the data further to predict how many of each type of crime (by FBI code) will occur in each commmunity area on a given day.
 
 ```{r}
-crime_train$n <- rep(1, nrow(crime_train))
-crime_test$n <- rep(1, nrow(crime_test))
-
-train_dat <- aggregate(n ~ yday + year + date, sum, data = crime_train)
-
-test_dat <-  aggregate(n ~ yday + year + date, sum, data = crime_test)
+# Quicker than aggregate
+train_dat <- gam_train %>% count(yday, year, date) %>% arrange(year, yday)
+test_dat <- gam_test %>% count(yday, year, date) %>% arrange(year, yday)
 ```
 
 ## Model creation
@@ -89,7 +90,8 @@ test_dat <-  aggregate(n ~ yday + year + date, sum, data = crime_test)
 We now build the GAMs using the `mgcv` package.
 
 ```{r}
-gam1 <- gam(n ~ s(as.numeric(yday), bs = "cc")  + year, data = train_dat, family = "poisson")
+gam1 <- gam(n ~ s(as.numeric(yday), bs = "cc") + year, data = train_dat, 
+            family = "poisson")
 plot(train_dat$n, predict(gam1, type = "response"))
 abline(a = 0, b = 1, col = "red")
 
@@ -98,11 +100,13 @@ points(train_dat$date, predict(gam1, type = "response"), col = "red")
 
 all_dat <- rbind(train_dat, test_dat)
 plot(all_dat$date, all_dat$n, xlab = "Date", ylab = "Daily crimes")
-points(all_dat$date, predict(gam1, type = "response", newdata = all_dat), col = c(rep("red", nrow(train_dat)), rep("blue", nrow(test_dat))))
+points(all_dat$date, predict(gam1, type = "response", newdata = all_dat), 
+       col = c(rep("red", nrow(train_dat)), rep("blue", nrow(test_dat))))
 abline(v = date("2019-01-01"), lty = "dashed")
 ```
 
 ## Feature creation
+
 There are several features that may be of interest, whether a day is a weekend or not, the number of crimes over the previous month, the number of crimes on the same day of the previous year. 
 
 ```{r}
@@ -201,3 +205,5 @@ plot(train_dat$date, train_dat$n)
 points(train_dat$date[-1], predict(gam5, type = "response"), col = "red")
 plot(train_dat$date[-1], train_dat$n[-1] - predict(gam5, type = "response"))
 ```
+
+# Discrete Spatial Data
