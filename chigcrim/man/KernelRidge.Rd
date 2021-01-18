@@ -40,7 +40,7 @@ y_hat_rbf <- kr$predict(X_test)
 
 \item{\code{n}}{Integer length of training data.}
 
-\item{\code{big_k}}{The n by n "K" matrix formed by kernel evaluations on X_train.}
+\item{\code{inv_big_k_lambda_y_train}}{Matrix containing (K + lambda I)^-1 %*% y_train}
 
 \item{\code{X_train}}{Training X matrix.}
 
