@@ -11,7 +11,7 @@ library(randomForest)
 
 
 # load functions in package
-devtools::load_all("chigcrim/")
+devtools::load_all("../chigcrim/")
 
 # Use 2019 data
 crime_dat <- load_data(2019)
