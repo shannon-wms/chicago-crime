@@ -53,7 +53,7 @@ load_data <- function(year = NULL, strings_as_factors = TRUE,
 
   # Only accept NULL or valid years
   if (!is.null(year)) {
-    if (!all((year %in% 2001:2021))) {
+    if (!all(year %in% 2001:2021)) {
       return("Please choose a year(s) between 2001 and 2021.")
     }
     if (length(year) > 2) {
@@ -206,6 +206,38 @@ cv_R6_k_fold <- function(object, X, y, error, k){
   mean(errors)
 }
 
-
-
+#' Convert dates to other formats in dataframe
+#' 
+#' @param df Data frame containing `date` column to extract instants from.
+#' @param as_factors Whether to convert `month`, `week`, `day` and `hour`
+#' into factors.
+#' @param exclude Specifies which instants to exclude from data frame returned.
+#' @return Data frame with `date` converted into instants.
+convert_dates <- function(df, as_factors = TRUE, exclude = NULL) {
+  if (as_factors) { # Convert columns to factors
+    df %<>%
+      mutate(month = factor(month(date)),
+             week = factor(week(date)),
+             day = factor(day(date)),
+             hour = factor(hour(date)),
+             yday = yday(date),
+             date = date(date)) 
+  } else { # No factors
+    df %<>%
+      mutate(month = month(date),
+             week = week(date),
+             day = day(date),
+             hour = hour(date),
+             yday = yday(date),
+             date = date(date)) 
+  }
+  # Remove specified rows to exclude
+  if (!is.null(exclude)) {
+    if (!all(exclude %in% c("month", "week", "day", "hour", "yday", "date"))) {
+      return('Ensure that exclude is a valid selection from 
+             "month", "week", "day", "hour", "yday", "date"')
+    } else df <- df[, !names(df) %in% exclude]
+  }
+  return(df)
+}
 
