@@ -40,7 +40,8 @@ parse_X <- function(X){
 #' @description
 #' Returns a data frame of Chicago Crime data from specified year, or entire dataset
 #' from 2001 to present if no year is specified.
-#' @param year integer in 2001:2020 specifying the desired year.
+#' @param year integer in 2001:2021 specifying the desired year, or two integers 
+#' specifying endpoints to filter between.
 #' @param strings_as_factors Whether to convert `iucr`, `primary_type`,
 #' `description`, `location_description` and `fbi_code` to factors.
 #' @param drop_location Whether to drop location as it duplicates data in latitude
