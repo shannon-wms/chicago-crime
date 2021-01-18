@@ -51,18 +51,27 @@ load_data <- function(year = NULL, strings_as_factors = TRUE,
                       drop_location = TRUE, na_omit = FALSE) {
 
   # Only accept NULL or valid years
-  if (!is.null(year)){
-    if(!(year %in% 2001:2020)){
-      return("Please choose a year between 2001 and 2020.")
+  if (!is.null(year)) {
+    if (!all((year %in% 2001:2021))) {
+      return("Please choose a year(s) between 2001 and 2021.")
+    }
+    if (length(year) > 2) {
+      return("Please choose either one year or upper and lower values.")
     }
   }
-
   base_url <- "https://data.cityofchicago.org/resource/ijzp-q8t2.csv"
-
-  # Download entire dataset if year not specified
-  full_url <- ifelse(!is.null(year), paste0(base_url, "?Year=", as.character(year)), base_url)
+  # Construct the URL for querying
+  if (is.null(year)) { # No year specified, download entire dataset
+    full_url <- base_url
+  } else if (length(year) == 2) { # Endpoints chosen, filter between them
+    year <- as.character(year)
+    full_url <- paste0(base_url, "?$where=year between '", year[1], "' and '", year[2], "'")
+  } else { # Single year chosen
+    year <- as.character(year)
+    full_url <- paste0(base_url, "?year=", year)
+  }
+  # Pull the data
   df <- read.socrata(full_url, app_token = "avsRhaZaZTqeJOGhBuFJieRzJ") %>% tibble()
-
   # Omit observations with NA values
   if (na_omit) df %<>% na.omit()
   # Convert dots in column names to underscore
@@ -70,6 +79,7 @@ load_data <- function(year = NULL, strings_as_factors = TRUE,
   # Convert character columns (excluding case_number and block) to factor or logical
   df %<>% type_convert(col_types = list(arrest = col_logical(),
                                         domestic = col_logical()))
+  # Convert strings to factors
   if (strings_as_factors){
     df %<>% type_convert(col_types = list(iucr = col_factor(),
                                           primary_type = col_factor(),
