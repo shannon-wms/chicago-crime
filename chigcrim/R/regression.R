@@ -22,7 +22,7 @@ NULL
 #' @field B Second hyperparameter (see description).
 #' @field kernel_function The kernel function.
 #' @field n Integer length of training data.
-#' @field inv_big_k_lambda_y_train Matrix containing (K + lambda I)^-1 %*% y_train
+#' @field inv_big_k_lambda_y_train Matrix containing (K + lambda I)^-1 . y_train
 #' @field X_train Training X matrix.
 #' @field y_train Training y vector.
 #' @field X_test Testing X matrix.
