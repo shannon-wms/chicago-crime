@@ -70,6 +70,12 @@ df <- df %>%
          community_area = as.factor(community_area))
 ```
 
+
+```{r}
+df
+```
+
+
 Run logistic-regression with cross-validation. Due to the size of the data set, running several folds would take a while so only a single fold is used.
 ```{r time_it=TRUE}
 X <- df %>% select(-arrest)
