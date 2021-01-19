@@ -97,6 +97,7 @@ LogisticRegression <- R6Class("LogisticRegression", list(
     theta <- optim_res$par
     names(theta) <- colnames(X)
     self$theta <- theta
+
     invisible(self)
   },
 
