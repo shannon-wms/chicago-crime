@@ -6,6 +6,7 @@
 #' @import magrittr
 #' @import readr
 #' @import lubridate
+#' @import doParallel
 NULL
 
 #' Parse matrix into useful format for ML algorithms
@@ -204,6 +205,57 @@ cv_R6_k_fold <- function(object, X, y, error, k){
     errors <- c(errors, err)
   }
   mean(errors)
+}
+
+#' @description 
+#' K-fold cross-validation for R6 class with parallel computation.
+#' 
+#' @param object R6 object with fit and predict methods.
+#' @param X Data matrix.
+#' @param y Response vector.
+#' @param error Function for calculating error.
+#' @param n_reps Number of repeats.
+#' @param parallel Whether to compute in parallel.
+#' @param n_threads The number of parallel threads to use. If NULL, this is 
+#' chosen to be the number of cores minus one.
+kfold_cv <- function(object, X, y, error, k, n_reps = 1000, parallel = FALSE, n_threads = NULL) {
+  n <- nrow(X)
+  if (parallel) { # Parallel computations
+    if (is.null(n_threads)) cluster <- makeCluster(detectCores(logical = TRUE) - 1) 
+    else cluster <- makeCluster(n_threads)
+    registerDoParallel(cluster)
+    # Load the required packages to the parallel sessions
+    clusterEvalQ(cluster, {
+      library(chigcrim)
+      library(caret)
+    })
+    # Export the R objects to the parallel sessions
+    clusterExport(cluster, c("object", "X", "y", "error", "n", "k"))
+    error_list <- foreach (i = 1:n_reps) %dopar% {
+      errors <- c()
+      folds <- split(sample(1:n), 1:k)
+      for (i in 1:k) {
+        indexes <- folds[[i]]
+        k_error <- cv_R6_idxs(object, X, y, error, indexes)
+        errors <- c(errors, k_error)
+      }
+      return(errors)
+    }
+  } else {
+    error_list <- list()
+    for (i in 1:n_reps) {
+      errors <- c()
+      folds <- split(sample(1:n), 1:k)
+      for (i in 1:k) {
+        indexes <- folds[[i]]
+        k_error <- cv_R6_idxs(object, X, y, error, indexes)
+        errors <- c(errors, k_error)
+      }
+      error_list[[i]] <- errors
+    }
+  }
+  # Average the list of errors
+  error_list %>% unlist() %>% mean()
 }
 
 #' Convert dates to other formats in dataframe
