@@ -19,7 +19,7 @@ sigmoid <- function(z){
 #'
 #' @description R6 class for Logistic Regression
 #'
-#' @field lambda Regularisation parameter (defualt=0).
+#' @field lambda Regularisation parameter (default=0).
 #' @field solver "BFGS", "CG" or "L-BFGS-B".
 #' @field X Training X (dataframe or matrix).
 #' @field y Training y vector.
@@ -90,7 +90,7 @@ LogisticRegression <- R6Class("LogisticRegression", list(
     X <- cbind(bias, X)
     init_theta <- rep(0, ncol(X))
     optim_res <- optim(init_theta, fn = self$log_loss, gr = self$grad_log_loss,
-                   method = self$solver, X = X, y=y, ...)
+                   method = self$solver, X = X, y = y, ...)
     if (optim_res$convergence == 1){
       warning("The algorithm did not converge.")
     }

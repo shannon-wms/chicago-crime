@@ -38,21 +38,22 @@ parse_X <- function(X){
 #' Download Chicago Crime data using Socrata API
 #'
 #' @description
-#' Returns a data frame of Chicago Crime data from specified year, or entire dataset
-#' from 2001 to present if no year is specified.
-#' @param year integer in 2001:2020 specifying the desired year.
+#' Returns a data frame of Chicago Crime data from specified year or range of years, 
+#' or returns entire dataset from 2001 to present if no years are specified.
+#' @param year integer in 2001:2021 specifying the desired year, or two integers 
+#' specifying endpoints to filter between.
 #' @param strings_as_factors Whether to convert `iucr`, `primary_type`,
 #' `description`, `location_description` and `fbi_code` to factors.
 #' @param drop_location Whether to drop location as it duplicates data in latitude
 #' and longitude.
-#' @param na_omit Whether to omit observations with NA values
-#' @return tibble Data frame of Chicago Crime data.
+#' @param na_omit Whether to omit observations with NA values.
+#' @return tibble data frame of Chicago Crime data.
 load_data <- function(year = NULL, strings_as_factors = TRUE,
                       drop_location = TRUE, na_omit = FALSE) {
 
   # Only accept NULL or valid years
   if (!is.null(year)) {
-    if (!all((year %in% 2001:2021))) {
+    if (!all(year %in% 2001:2021)) {
       return("Please choose a year(s) between 2001 and 2021.")
     }
     if (length(year) > 2) {
@@ -205,6 +206,38 @@ cv_R6_k_fold <- function(object, X, y, error, k){
   mean(errors)
 }
 
-
-
+#' Convert dates to other formats in dataframe
+#' 
+#' @param df Data frame containing `date` column to extract instants from.
+#' @param as_factors Whether to convert `month`, `week`, `day` and `hour`
+#' into factors.
+#' @param exclude Specifies which instants to exclude from data frame returned.
+#' @return Data frame with `date` converted into instants.
+convert_dates <- function(df, as_factors = TRUE, exclude = NULL) {
+  if (as_factors) { # Convert columns to factors
+    df %<>%
+      mutate(month = factor(month(date)),
+             week = factor(week(date)),
+             day = factor(day(date)),
+             hour = factor(hour(date)),
+             yday = yday(date),
+             date = date(date)) 
+  } else { # No factors
+    df %<>%
+      mutate(month = month(date),
+             week = week(date),
+             day = day(date),
+             hour = hour(date),
+             yday = yday(date),
+             date = date(date)) 
+  }
+  # Remove specified rows to exclude
+  if (!is.null(exclude)) {
+    if (!all(exclude %in% c("month", "week", "day", "hour", "yday", "date"))) {
+      return('Ensure that exclude is a valid selection from 
+             "month", "week", "day", "hour", "yday", "date".')
+    } else df <- df[, !names(df) %in% exclude]
+  }
+  return(df)
+}
 
