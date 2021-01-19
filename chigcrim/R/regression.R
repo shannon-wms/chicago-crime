@@ -1,5 +1,7 @@
 # Script contains functions and classes for regression algorithms
 #' @importFrom R6 R6Class
+#' @import mgcv
+#' @import spdep
 NULL
 
 #' Kernel Ridge Regression
@@ -38,7 +40,7 @@ NULL
 #' kr <- KernelRidge$new("rbf", lambda = 1, 3)
 #' kr$fit(X_train, y_train)
 #' y_hat_rbf <- kr$predict(X_test)
-KernelRidge = R6Class("KernelRidge", public = list(
+KernelRidge <- R6Class("KernelRidge", public = list(
   kernel = "character",
   lambda = "numeric",
   A = "numeric",
@@ -59,13 +61,13 @@ KernelRidge = R6Class("KernelRidge", public = list(
   #' @param A Hyperparameters for polynomial and rbf kernels
   #' @param B Hyperparameters for polynomial and rbf kernels
   initialize = function(kernel, lambda, A = numeric(0), B = numeric(0)){
-    self$kernel = kernel
-    self$lambda = lambda
-    self$A = A
-    self$B = B
+    self$kernel <- kernel
+    self$lambda <- lambda
+    self$A <- A
+    self$B <- B
 
     private$check_params()
-    self$kernel_function = self$get_kernel_function()
+    self$kernel_function <- self$get_kernel_function()
   },
 
 
@@ -74,12 +76,12 @@ KernelRidge = R6Class("KernelRidge", public = list(
   #' Gives the kernel function with hyperparameters set.
   get_kernel_function = function(){
     if (self$kernel == "linear"){
-      k = private$linear_kernel
+      k <- private$linear_kernel
       return(k)
     }
 
     else if (self$kernel == "polynomial"){
-      k = function(x1, X2){private$polynomial_kernel(x1, X2, self$A, self$B)}
+      k <- function(x1, X2){private$polynomial_kernel(x1, X2, self$A, self$B)}
       return(k)
     }
 
@@ -99,13 +101,13 @@ KernelRidge = R6Class("KernelRidge", public = list(
       X_train <- cbind(1, X_train)  # RBF doesn't need bias term.
     }
 
-    self$y_train = y_train  # Not really used here, just for consistency
-    self$X_train = X_train
-    self$n = nrow(X_train)
-    K = matrix(nrow = self$n, ncol = self$n)
+    self$y_train <- y_train  # Not really used here, just for consistency
+    self$X_train <- X_train
+    self$n <- nrow(X_train)
+    K <- matrix(nrow = self$n, ncol = self$n)
 
     for (j in 1:self$n){
-      K[, j] = self$kernel_function(X_train[j, ], X_train)
+      K[, j] <- self$kernel_function(X_train[j, ], X_train)
     }
     self$big_k = K
   },
@@ -119,17 +121,17 @@ KernelRidge = R6Class("KernelRidge", public = list(
       X_test <- cbind(1, X_test)  # RBF doesn't need bias term.
     }
 
-    self$X_test = X_test
-    I = diag(nrow=self$n, ncol=self$n)
-    predictions_ = c()
+    self$X_test <- X_test
+    I <- diag(nrow<-self$n, ncol=self$n)
+    predictions <- c()
 
     for (i in 1:nrow(X_test)){
-      little_k = self$kernel_function(X_test[i, ], self$X_train)
-      pred = t(little_k) %*% solve(self$big_k + self$lambda*I) %*% self$y_train
-      predictions_ = c(predictions_, pred)
+      little_k <- self$kernel_function(X_test[i, ], self$X_train)
+      pred <- t(little_k) %*% solve(self$big_k + self$lambda*I) %*% self$y_train
+      predictions <- c(predictions, pred)
     }
-    self$prediction = predictions_
-    return(predictions_)
+    self$prediction <- predictions
+    return(predictions)
   }
 ), private = list(
   # Checks arguments are defined correctly
@@ -150,8 +152,8 @@ KernelRidge = R6Class("KernelRidge", public = list(
 
   #' Radial basis function kernel function (compares matrix rows to vector)
   rbf_kernel = function(x1, X2, bandwidth){
-    difs = t(X2)-x1
-    dot_prods = colSums(difs^2)
+    difs <- t(X2)-x1
+    dot_prods <- colSums(difs^2)
     exp(-(sqrt(dot_prods))/(2*bandwidth^2))
   },
 
@@ -181,4 +183,120 @@ squared_error_loss <- function(y_hat, y){
   mean((y_hat - y)^2)
 }
 
-
+#' Poisson GAM Regression
+#' 
+#' @description 
+#' R6 class for the Poisson family of GAMs.
+#' 
+#' @field df_train The training dataset.
+#' @field df_test The test dataset.
+#' @field time_period Specifies the time period: must be one of "days", "weeks" or
+#' "months".
+#' @field region Specifies the spatial region to use: must be one of "beat", "district",
+#' "ward" or "community".
+#' @field include_nb Whether to include a neighbours list for the discrete spatial 
+#' regions and then use a Markov random field smoother for fitting.
+#' @field include_crimetype Whether to include crime types as a predictor in the model.
+#' @field n_threads Number of threads to use when fitting the GAM in parallel.
+PoissonGAM <- R6Class("PoissonGAM", public = list(
+  df_train = "data.frame",
+  df_test = "data.frame",
+  time_period = "character",
+  region = "character",
+  include_nb = "logical",
+  include_crimetype = "logical",
+  n_threads = "integer",
+  nbd_list = "list",
+  count_train = "data.frame",
+  count_test = "data.frame",
+  gam_fitted = "list"
+  predictions = "numeric",
+  
+  #' @description 
+  #' Create new PoissonGAM object.
+  initialize = function(time_period = "week", region = "community_area", 
+                        include_nb = FALSE, include_crimetype = FALSE) {
+    self$time_period <- time_period
+    self$region <- region
+    self$include_nb <- include_nb
+    self$include_crimetype <- include_crimetype
+    
+    private$check_params()
+    if (include_nb) self$nbd_list <- private$get_nbd_list(region)
+  },
+  
+  #' @description
+  #' Function for fitting a GAM to the training dataset.
+  #' @param df_train The training dataset.
+  #' @param n_threads The number of threads to use for parallel smoothing
+  #' parameter selection methods in `gam`
+  #' @param ... Additional arguments to be passed to `gam`
+  fit = function(df_train, n_threads = 1, ...) {
+    self$count_train <- count_data(df_train)
+    ctrl <- gam.control(nthreads = n_threads)
+    # Construct formula for GAM
+    f <- formula(n ~ s(as.numeric(get(self$time_period)), bs = "cc")
+    if (self$include_nb) {
+      f %<>% update(~ . + s(get(self$region), bs = "mrf", xt = list(nb = self$nbd_list)))
+    } else f %<>% update(~ . + get(self$region))
+    # Add crime type to formula
+    if (self$include_crimetype) f %<>% update(~ . + fbi_code)
+    # Fit GAM
+    self$gam_fitted <- gam(f, data = self$count_train, family = "poisson",
+                           control = ctrl, ...)
+  },
+  #' @description 
+  #' Function for predicting new dataset 
+  predict = function(df_test = NULL, ...) {
+    if (!is.null(df_test)) {
+      self$count_test <- count_data(df_test)
+      gam_predict <- predict(self$gam_fitted, newdata = self$count_test)
+    } else gam_predict <- predict(self$gam_fitted)
+    self$predictions <- gam_predict
+  }
+), private = list(
+  # Check parameters are defined properly
+  check_params = function() {
+    if (!self$time_period %in% c("week", "day", "month")) {
+      stop('Time period must be one of "yday", "week" or "month".')
+    } else if (!self$region %in% c("beat", "community_area")) {
+      stop('Region must be one of "beat" or "community_area".')
+    }
+  },
+  # Aggregate given dataset into count data
+  get_count_data = function(df) {
+    # Crime type data included
+    if (self$include_crimetype) {
+      # Ensure FBI code is sorted alphabetically
+      df$fbi_code %<>% forcats::fct_relevel(sort)
+      count_data <- df %>% 
+        mutate(!!eval(self$region) := factor(get(self$region))) %>%
+        count(get(self$region), get(self$time_period), fbi_code) %>%
+        rename(!!eval(self$time_period) := `get(self$time_period)`,
+               !!eval(self$region) := `get(self$region)`) %>%
+        arrange(eval(self$time_period), eval(self$region), fbi_code)
+    } else { # Crime type data not included
+      count_data <- df %>% 
+        mutate(!!eval(self$region) := factor(get(self$region))) %>%
+        count(get(self$region), get(self$time_period)) %>%
+        rename(!!eval(self$time_period) := `get(self$time_period)`,
+               !!eval(self$region) := `get(self$region)`) %>%
+        arrange(eval(self$time_period), eval(self$region))
+    }
+  },
+  # Construct a neighbourhood list for beats or community areas
+  get_nbd_list = function() {
+    if (self$region == "community") {
+      bounds <- data(beat_bounds)
+      nbd_list <- spdep::poly2nb(bounds, row.names = bounds$beat)
+    }
+    else {
+      bounds <- data(community_bounds)
+      nbd_list <- spdep::poly2nb(bounds, row.names = bounds$community)
+    }
+    # Name the rows in the list
+    names(nbd_list) <- attr(nbd_list, "region.id")
+    return(nbd_list)
+  }
+)
+)
