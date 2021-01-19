@@ -18,7 +18,7 @@ cv_R6_k_fold(object, X, y, error, k)
 \item{k}{Number of folds to use}
 }
 \value{
-
+Mean error across folds
 }
 \description{
 K-fold cross validation for R6 class
