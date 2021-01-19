@@ -43,6 +43,3 @@ vignettes/*.pdf
 
 # R project files
 *.Rproj
-
-# pdf files
-*.pdf
