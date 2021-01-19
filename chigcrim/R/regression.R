@@ -124,12 +124,11 @@ KernelRidge <- R6Class("KernelRidge", public = list(
     }
 
     self$X_test <- X_test
-    I <- diag(nrow<-self$n, ncol=self$n)
     predictions <- c()
 
     for (i in 1:nrow(X_test)){
       little_k <- self$kernel_function(X_test[i, ], self$X_train)
-      pred <- t(little_k) %*% solve(self$big_k + self$lambda*I) %*% self$y_train
+      pred <- t(little_k) %*% self$inv_big_k_lambda_y_train
       predictions <- c(predictions, pred)
     }
     self$prediction <- predictions
