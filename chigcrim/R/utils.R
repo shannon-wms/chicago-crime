@@ -235,7 +235,7 @@ convert_dates <- function(df, as_factors = TRUE, exclude = NULL) {
   if (!is.null(exclude)) {
     if (!all(exclude %in% c("month", "week", "day", "hour", "yday", "date"))) {
       return('Ensure that exclude is a valid selection from 
-             "month", "week", "day", "hour", "yday", "date"')
+             "month", "week", "day", "hour", "yday", "date".')
     } else df <- df[, !names(df) %in% exclude]
   }
   return(df)
