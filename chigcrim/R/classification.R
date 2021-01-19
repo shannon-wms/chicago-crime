@@ -90,14 +90,14 @@ LogisticRegression <- R6Class("LogisticRegression", list(
     X <- cbind(bias, X)
     init_theta <- rep(0, ncol(X))
     optim_res <- optim(init_theta, fn = self$log_loss, gr = self$grad_log_loss,
-                   method = self$solver, X = X, y=y,
-                   control = list(maxit = 10000), ...)
+                   method = self$solver, X = X, y = y, ...)
     if (optim_res$convergence == 1){
       warning("The algorithm did not converge.")
     }
     theta <- optim_res$par
     names(theta) <- colnames(X)
     self$theta <- theta
+
     invisible(self)
   },
 

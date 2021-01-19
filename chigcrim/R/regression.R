@@ -24,7 +24,7 @@ NULL
 #' @field B Second hyperparameter (see description).
 #' @field kernel_function The kernel function.
 #' @field n Integer length of training data.
-#' @field big_k The n by n "K" matrix formed by kernel evaluations on X_train.
+#' @field inv_big_k_lambda_y_train Matrix containing (K + lambda I)^-1 . y_train
 #' @field X_train Training X matrix.
 #' @field y_train Training y vector.
 #' @field X_test Testing X matrix.
@@ -47,7 +47,7 @@ KernelRidge <- R6Class("KernelRidge", public = list(
   B = "numeric",
   kernel_function = "function",
   n = "integer",
-  big_k = "matrix",
+  inv_big_k_lambda_y_train = "matrix",
   X_train = "matrix",
   X_test = "matrix",
   y_train = "vector",
@@ -109,7 +109,9 @@ KernelRidge <- R6Class("KernelRidge", public = list(
     for (j in 1:self$n){
       K[, j] <- self$kernel_function(X_train[j, ], X_train)
     }
-    self$big_k = K
+    I <- diag(nrow=self$n, ncol=self$n)
+    self$inv_big_k_lambda_y_train <- solve(K + self$lambda*I,
+                                           self$y_train)
   },
 
   #' @description
@@ -122,12 +124,11 @@ KernelRidge <- R6Class("KernelRidge", public = list(
     }
 
     self$X_test <- X_test
-    I <- diag(nrow<-self$n, ncol=self$n)
     predictions <- c()
 
     for (i in 1:nrow(X_test)){
       little_k <- self$kernel_function(X_test[i, ], self$X_train)
-      pred <- t(little_k) %*% solve(self$big_k + self$lambda*I) %*% self$y_train
+      pred <- t(little_k) %*% self$inv_big_k_lambda_y_train
       predictions <- c(predictions, pred)
     }
     self$prediction <- predictions

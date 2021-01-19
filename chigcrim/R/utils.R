@@ -152,7 +152,7 @@ cv_R6_idxs <- function(object, X, y, error, idxs){
   object$fit(X_train, y_train)
   y_hat <- object$predict(X_test)
 
-  error(y_test, y_hat)
+  error(y_hat, y_test)
 }
 
 #' Cross-validation error for R6 class
@@ -186,7 +186,7 @@ cv_R6 <- function(object, X, y, error, test_size){
 #' @param error Function to calculate error (taking y and y_hat)
 #' @param k Number of folds to use
 #'
-#' @return
+#' @return Mean error across folds
 #' @export
 #'
 #' @examples
