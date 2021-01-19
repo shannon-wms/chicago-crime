@@ -209,7 +209,7 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   nbd_list = "list",
   count_train = "data.frame",
   count_test = "data.frame",
-  gam_fitted = "list"
+  gam_fitted = "list",
   predictions = "numeric",
   
   #' @description 
@@ -235,7 +235,7 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
     self$count_train <- count_data(df_train)
     ctrl <- gam.control(nthreads = n_threads)
     # Construct formula for GAM
-    f <- formula(n ~ s(as.numeric(get(self$time_period)), bs = "cc")
+    f <- formula(n ~ s(as.numeric(get(self$time_period)), bs = "cc"))
     if (self$include_nb) {
       f %<>% update(~ . + s(get(self$region), bs = "mrf", xt = list(nb = self$nbd_list)))
     } else f %<>% update(~ . + get(self$region))
