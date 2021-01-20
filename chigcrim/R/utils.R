@@ -230,7 +230,7 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FAL
     registerDoParallel(cluster)
     # Load the required packages to the parallel sessions
     clusterEvalQ(cluster, {
-      devtools::load_all()
+      #devtools::load_all()
       library(caret)
     })
     # Export the R objects in the current environment to the parallel sessions
