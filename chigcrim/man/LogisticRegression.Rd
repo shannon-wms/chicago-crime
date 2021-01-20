@@ -16,7 +16,7 @@ lr$predict(X)
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{lambda}}{Regularisation parameter (defualt=0).}
+\item{\code{lambda}}{Regularisation parameter (default=0).}
 
 \item{\code{solver}}{"BFGS", "CG" or "L-BFGS-B".}
 
