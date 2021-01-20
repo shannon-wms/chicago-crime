@@ -7,8 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = "chigcrim")
-                       #rprojroot::find_rstudio_root_file())
+knitr::opts_knit$set(root.dir = paste0(rprojroot::find_rstudio_root_file(), "/chigcrim"))
 ```
 
 ## Imports
