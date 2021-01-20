@@ -52,7 +52,6 @@ LogisticRegression <- R6Class("LogisticRegression", list(
                         control = NULL, round_y_hat = FALSE){
     stopifnot(solver %in% c("BFGS", "CG", "L-BFGS-B"))
     stopifnot(lambda >= 0)
-    stopifnot(is.list(control))
     stopifnot(is.logical(round_y_hat))
 
     self$lambda <- lambda

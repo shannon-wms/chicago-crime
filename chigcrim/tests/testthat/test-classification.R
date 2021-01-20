@@ -5,7 +5,7 @@ test_that("Lostistic regression == glm logit", {
   X = subset(mtcars, select = c("mpg", "wt"))
   y = mtcars$am
 
-  lr=LogisticRegression$new()
+  lr <- LogisticRegression$new()
   lr$fit(X, y)
 
   glm_lr = glm(y ~ ., data=X, family="binomial")

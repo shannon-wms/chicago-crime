@@ -88,7 +88,7 @@ head(df)
 ```
 
 ## Logistic Regression
-We will first consider a logistic regression classifier. Due to the size of the data set (`r dim(df)[1]` $\times$ `r dim(df)[2]`), running several folds would be time consuming, so only a single fold is used. The factor variables are one-hot-encoded internally.
+We will first consider a logistic regression classifier. The factor variables are one-hot-encoded internally. Here, we use repeated k-fold cross validation. Specifically, 5-fold cross validation is repeated three times, and the metrics are averaged across the folds.
 ```{r time_it=TRUE}
 X <- df %>% select(-arrest)
 y <- df$arrest
@@ -97,32 +97,19 @@ lr <- LogisticRegression$new(solver = "BFGS",
                              control = list(maxit=1000, reltol = 1e-4),
                              round_y_hat = TRUE)
 
-classification_accuracy <- function(y_hat, y_test){
-  sum(y_hat == y_test)/length(y_hat)
-}
+metrics <- list(accuracy = classification_accuracy,
+                sensitivity = classification_sensitivity,
+                specificity = classification_specificity)
 
-classification_sensitivity <- function(y_hat, y_test){
-  sum(y_hat[y_test == 1] == 1) / length(y_hat[y_test == 1])
-}
+#REMOVE THIS
+X <- X[1:1000, ]
+y <- y[1:1000]
 
-classification_specificity <- function(y_hat, y_test){
-  sum(y_hat[y_test == 0] == 0) / length(y_hat[y_test == 0])
-}
-
-
-kfold_cv(lr, X, y, list(classification_accuracy,
-                        classification_sensitivity,
-                        classification_specificity),
-         k = 5, n_reps = 3, parallel = TRUE, n_threads = 3)
+lr_results <- kfold_cv(lr, X, y, metrics,
+                       k = 5, n_reps = 3, parallel = TRUE, n_threads = 3)
 
 
-lr$fit(X_train, y_train)
-
-y_hat <- lr$predict(X_test)
-
-
-y_hat <-  as.logical(round(y_hat))
-lr_results <- confusionMatrix(as.factor(y_hat), as.factor(y_test))
+as.tibble(lr_results)
 
 ```
 

@@ -2,6 +2,9 @@
 
 export(KernelRidge)
 export(LogisticRegression)
+export(classification_accuracy)
+export(classification_sensitivity)
+export(classification_specificity)
 export(cv_R6)
 export(cv_R6_idxs)
 export(cv_R6_k_fold)
