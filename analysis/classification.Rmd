@@ -95,12 +95,26 @@ X_test <- X[test_idxs, ]
 y_train <- y[-test_idxs]
 y_test <- y[test_idxs]
 
-lr <- LogisticRegression$new(solver = "BFGS")
-lr$fit(X_train, y_train, control = list(maxit=1000, reltol = 1e-4))
+lr <- LogisticRegression$new(solver = "BFGS",
+                             control = list(maxit=1000, reltol = 1e-4),
+                             round_y_hat = TRUE)
+
+classification_accuracy <- function(y_hat, y_test){
+  sum(y_hat == y_test)/length(y_hat)
+}
+
+
+kfold_cv(lr, X, y, list(classification_accuracy), k = 5, n_reps = 2, parallel = TRUE)
+
+
+lr$fit(X_train, y_train)
 
 y_hat <- lr$predict(X_test)
+
+
 y_hat <-  as.logical(round(y_hat))
 lr_results <- confusionMatrix(as.factor(y_hat), as.factor(y_test))
+
 ```
 
 ## Support Vector Machine

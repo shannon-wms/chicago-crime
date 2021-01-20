@@ -12,7 +12,7 @@ load_data(
 )
 }
 \arguments{
-\item{year}{integer in 2001:2021 specifying the desired year, or two integers 
+\item{year}{integer in 2001:2021 specifying the desired year, or two integers
 specifying endpoints to filter between.}
 
 \item{strings_as_factors}{Whether to convert `iucr`, `primary_type`,
@@ -27,6 +27,6 @@ and longitude.}
 tibble data frame of Chicago Crime data.
 }
 \description{
-Returns a data frame of Chicago Crime data from specified year or range of years, 
+Returns a data frame of Chicago Crime data from specified year or range of years,
 or returns entire dataset from 2001 to present if no years are specified.
 }

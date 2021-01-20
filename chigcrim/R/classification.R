@@ -24,6 +24,8 @@ sigmoid <- function(z){
 #' @field X Training X (dataframe or matrix).
 #' @field y Training y vector.
 #' @field theta The fitted parameters.
+#' @field control list passed to optim control.
+#' @field round_y_hat boolean, whether to round predictions to 0 and 1.
 #' @export
 #' @examples
 #' X <- subset(mtcars, select = c("mpg", "wt"))
@@ -37,17 +39,26 @@ LogisticRegression <- R6Class("LogisticRegression", list(
   X = NULL,
   y = NULL,
   theta = NULL,
+  control = NULL,
+  round_y_hat = NULL,
 
   #' @description
   #' Create new LogisticRegression object.
   #' @param solver "L-BFGS-B", "BFGS" or "CG". Default "L-BFGS-B".
-  #' @param lambda regularisation parameter, defualt 0.
-  initialize = function(solver = "L-BFGS-B", lambda=0){
+  #' @param lambda Regularisation parameter, defualt 0.
+  #' @param control List passed to optim control.
+  #' @param round_y_hat Whether to round predictions.
+  initialize = function(solver = "L-BFGS-B", lambda = 0,
+                        control = NULL, round_y_hat = FALSE){
     stopifnot(solver %in% c("BFGS", "CG", "L-BFGS-B"))
     stopifnot(lambda >= 0)
+    stopifnot(is.list(control))
+    stopifnot(is.logical(round_y_hat))
 
     self$lambda <- lambda
     self$solver <- solver
+    self$control <- control
+    self$round_y_hat <- round_y_hat
   },
 
   #' @description
@@ -89,8 +100,12 @@ LogisticRegression <- R6Class("LogisticRegression", list(
     bias <- 1
     X <- cbind(bias, X)
     init_theta <- rep(0, ncol(X))
-    optim_res <- optim(init_theta, fn = self$log_loss, gr = self$grad_log_loss,
-                   method = self$solver, X = X, y = y, ...)
+
+    optim_res <- optim(
+      init_theta, fn = self$log_loss, gr = self$grad_log_loss,
+      method = self$solver, X = X, y = y, control = self$control, ...
+      )
+
     if (optim_res$convergence == 1){
       warning("The algorithm did not converge.")
     }
@@ -109,6 +124,9 @@ LogisticRegression <- R6Class("LogisticRegression", list(
     X <- cbind(bias, parse_X(X))
     predictions <- as.vector(sigmoid(X %*% self$theta))
     names(predictions) <- rownames(X)
+    if (self$round_y_hat){
+      predictions <- round(predictions)
+    }
     predictions
   },
 

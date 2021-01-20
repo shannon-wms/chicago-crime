@@ -7,6 +7,7 @@
 #' @import readr
 #' @import lubridate
 #' @import doParallel
+#' @import parallel
 NULL
 
 #' Parse matrix into useful format for ML algorithms
@@ -39,9 +40,9 @@ parse_X <- function(X){
 #' Download Chicago Crime data using Socrata API
 #'
 #' @description
-#' Returns a data frame of Chicago Crime data from specified year or range of years, 
+#' Returns a data frame of Chicago Crime data from specified year or range of years,
 #' or returns entire dataset from 2001 to present if no years are specified.
-#' @param year integer in 2001:2021 specifying the desired year, or two integers 
+#' @param year integer in 2001:2021 specifying the desired year, or two integers
 #' specifying endpoints to filter between.
 #' @param strings_as_factors Whether to convert `iucr`, `primary_type`,
 #' `description`, `location_description` and `fbi_code` to factors.
@@ -208,23 +209,23 @@ cv_R6_k_fold <- function(object, X, y, error, k){
 }
 
 #' K-fold cross-validation for R6 class with parallel computation
-#' 
+#'
 #' @param object R6 object with fit and predict methods.
 #' @param X Data matrix.
 #' @param y Response vector.
 #' @param error_funcs List of functions for calculating error.
 #' @param n_reps Number of repeats.
 #' @param parallel Whether to compute in parallel.
-#' @param n_threads The number of parallel threads to use. If NULL, this is 
+#' @param n_threads The number of parallel threads to use. If NULL, this is
 #' chosen to be the number of cores minus one.
-#' @return List of length equal to that of `error_funcs` with each element 
-#' containing a vector of length `n_reps` corresponding to the mean error 
+#' @return List of length equal to that of `error_funcs` with each element
+#' containing a vector of length `n_reps` corresponding to the mean error
 #' averaged over `k` folds.
 kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FALSE, n_threads = NULL) {
   n <- nrow(X)
   m <- length(error_funcs)
   if (parallel) { # Parallel computations
-    if (is.null(n_threads)) cluster <- makeCluster(detectCores(logical = TRUE) - 1) 
+    if (is.null(n_threads)) cluster <- makeCluster(detectCores(logical = TRUE) - 1)
     else cluster <- makeCluster(n_threads)
     registerDoParallel(cluster)
     # Load the required packages to the parallel sessions
@@ -233,13 +234,13 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FAL
       library(caret)
     })
     # Export the R objects in the current environment to the parallel sessions
-    clusterExport(cluster, c("object", "X", "y", "error_funcs", "n", "k"), 
+    clusterExport(cluster, c("object", "X", "y", "error_funcs", "n", "k"),
                   envir = environment())
     error_list <- foreach (i = 1:n_reps) %dopar% {
       errors <- list()
       folds <- split(sample(1:n), 1:k)
       for (j in 1:k) {
-        errors[[j]] <- mapply(cv_R6_idxs, error = error_funcs, 
+        errors[[j]] <- mapply(cv_R6_idxs, error = error_funcs,
                             MoreArgs = list(object = object, X = X, y = y,
                                             idxs = folds[[j]]))
       }
@@ -252,7 +253,7 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FAL
       errors <- list()
       folds <- split(sample(1:n), 1:k)
       for (j in 1:k) {
-        errors[[j]] <- mapply(cv_R6_idxs, error = error_funcs, 
+        errors[[j]] <- mapply(cv_R6_idxs, error = error_funcs,
                               MoreArgs = list(object = object, X = X, y = y,
                                               idxs = folds[[j]]))
       }
@@ -272,7 +273,7 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FAL
 }
 
 #' Convert dates to other formats in dataframe
-#' 
+#'
 #' @param df Data frame containing `date` column to extract instants from.
 #' @param as_factors Whether to convert `month`, `week`, `day` and `hour`
 #' into factors.
@@ -286,7 +287,7 @@ convert_dates <- function(df, as_factors = TRUE, exclude = NULL) {
              day = factor(day(date)),
              hour = factor(hour(date)),
              yday = yday(date),
-             date = date(date)) 
+             date = date(date))
   } else { # No factors
     df %<>%
       mutate(month = month(date),
@@ -294,12 +295,12 @@ convert_dates <- function(df, as_factors = TRUE, exclude = NULL) {
              day = day(date),
              hour = hour(date),
              yday = yday(date),
-             date = date(date)) 
+             date = date(date))
   }
   # Remove specified rows to exclude
   if (!is.null(exclude)) {
     if (!all(exclude %in% c("month", "week", "day", "hour", "yday", "date"))) {
-      return('Ensure that exclude is a valid selection from 
+      return('Ensure that exclude is a valid selection from
              "month", "week", "day", "hour", "yday", "date".')
     } else df <- df[, !names(df) %in% exclude]
   }
