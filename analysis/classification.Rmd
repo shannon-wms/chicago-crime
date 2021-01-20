@@ -11,6 +11,7 @@ library(data.table)
 library(lubridate)
 library(caret)
 library(e1071)
+library(randomForest)
 
 devtools::load_all("../chigcrim/")
 
@@ -112,10 +113,23 @@ train <- df[train_idxs, ]
 test <- df[-train_idxs, ]
 
 # Create svm using e1071 package
-svm_ <- svm(arrest ~ ., data = train, type = "C-classification", kernel = "radial")
+svm_ <- svm(arrest ~ ., data = train, type = "C-classification", kernel = "radial", cachesize = 120)
 
 y_hat <- predict(svm_, newdata = test)
 svm_results <- confusionMatrix(y_hat, as.factor(test$arrest))
+
+```
+
+## Random Forest
+The random forest trains multiple decision trees using a subset of features to create each tree. Decision trees are an ordered set of rules defined on the feature values that attempt to split the data into classes. They have a tendency to overfit, the random forest solves this by growing multiple trees on different features within the datset. In the classification case a prediction is made by predicting from each decision tree seperately and finding the most common predicted class. They are a black-box method but can be useful for prediction. We train our random forest using the `randomForest` package. Due to the high computational cost involed in fitting random forest models we train it on a subset of the data taking 20000 rows as we did for the SVM.
+
+```{r}
+# randomForest can't take categorical variables with more than 53 levels, as spatial information should be captured
+# by long/lat we remove this from the data set
+rf_train <- select(train, - "community_area") 
+rf <-randomForest(select(rf_train, -"arrest"), y = as.factor(rf_train$arrest))
+y_hat <- predict(rf, newdata = test)
+rf_results <- confusionMatrix(y_hat, as.factor(test$arrest))
 ```
 
 ## Comparison of models
@@ -137,7 +151,22 @@ The results for the models are shown below:
 
 - Specificity: `r svm_results$byClass["Specificity"]`
 
-Surprisingly, despite the ability of kernel ridge regression to utilise non-linear relationships (in the original feature space), it did not perform better than logistic regression (and was much more computationally costly to train). The support vector machine had higher sensitivity. This reflects the fact that the logistic regression classifier gave more balanced predictions between the classes, inevitably leading to more false negatives.
+**Random Forest**
+
+- Overall accuracy: `r rf_results$overall["Accuracy"]`
+
+- Sensitivity: `r rf_results$byClass["Sensitivity"]`
+
+- Specificity: `r rf_results$byClass["Specificity"]`
+
+Surprisingly, despite the ability of support vector machines to utilise non-linear relationships (in the original feature space), it did not perform better than logistic regression (and was much more computationally costly to train). The support vector machine had higher sensitivity. This reflects the fact that the logistic regression classifier gave more balanced predictions between the classes, inevitably leading to more false negatives.
 
 Perhaps these results suggest that much of the spatial relationship in the data could be captured using the `community_area` and `location_description` factor variables, rather than the specific x and y coordinates of the crime. Hence, the logistic regression classifier could perform well, despite the data being spatial, and likely infringing on the independent and identically distributed assumption of logistic regression. Alternatively, perhaps the performance of the support vector machine was hindered by the fact it was only trained on a small proportion of the data set (due to computational limitations), compared to logistic regression.
 
+On the other hand the random forest managed to out perform both the other models without using `community area` as a feature. It is likely that the random forest could be improved by training on a larger subset of the data and optimising the hyperparameters. The downside of this is that as a black-box method is does not provide any inference as to how the features are used within the model. We are at least able to look at how many times each feature was chosen as a splitting point in all of the trees providing some inference as to the importance of each of the features. 
+
+```{r}
+importance(rf)
+```
+
+We see the most important feature was `fbi_code`, this is somewhat expected as it determines what type of crime occcured and this would intuitively have a large affect in whether someone was arrested. None of the models achieve an accuracy of more than 90%. This could be due to the absence of key demographic data which may provide more information as to whether someone will be arrested.
