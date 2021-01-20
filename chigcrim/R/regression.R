@@ -1,7 +1,8 @@
 # Script contains functions and classes for regression algorithms
 #' @importFrom R6 R6Class
 #' @import mgcv
-#' @import spdep
+#' @importFrom spdep poly2nb
+#' @importFrom forcats fct_relevel
 NULL
 
 #' Kernel Ridge Regression
@@ -69,7 +70,6 @@ KernelRidge <- R6Class("KernelRidge", public = list(
     private$check_params()
     self$kernel_function <- self$get_kernel_function()
   },
-
 
 
   #' @description
@@ -211,6 +211,7 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   count_train = "data.frame",
   count_test = "data.frame",
   gam_fitted = "list",
+  fit_summary = "list",
   predictions = "numeric",
   
   #' @description 
@@ -223,20 +224,26 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
     self$include_crimetype <- include_crimetype
     
     private$check_params()
-    if (include_nb) self$nbd_list <- private$get_nbd_list(region)
+    if (include_nb) self$nbd_list <- private$get_nbd_list()
   },
   
   #' @description
   #' Function for fitting a GAM to the training dataset.
   #' @param df_train The training dataset.
   #' @param n_threads The number of threads to use for parallel smoothing
+  #' @param convert Whether the column
   #' parameter selection methods in `gam`
   #' @param ... Additional arguments to be passed to `gam`
-  fit = function(df_train, n_threads = 1, ...) {
-    self$count_train <- count_data(df_train)
+  fit = function(df_train, convert = FALSE, n_threads = 1, ...) {
+    # Convert date column to instants if necessary
+    if (convert) self$df_train <- convert_dates(df_train)
+    else self$df_train <- df_train
+    # Create count data
+    self$count_train <- private$get_count_data(self$df_train)
     ctrl <- gam.control(nthreads = n_threads)
     # Construct formula for GAM
     f <- formula(n ~ s(as.numeric(get(self$time_period)), bs = "cc"))
+    # Add region and neighbourhood list if required
     if (self$include_nb) {
       f %<>% update(~ . + s(get(self$region), bs = "mrf", xt = list(nb = self$nbd_list)))
     } else f %<>% update(~ . + get(self$region))
@@ -245,14 +252,21 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
     # Fit GAM
     self$gam_fitted <- gam(f, data = self$count_train, family = "poisson",
                            control = ctrl, ...)
+    self$fit_summary <- summary(self$gam_fitted)
   },
   #' @description 
-  #' Function for predicting new dataset 
-  predict = function(df_test = NULL, ...) {
+  #' Prediction for a new dataset
+  predict = function(df_test = NULL, convert = FALSE, ...) {
     if (!is.null(df_test)) {
-      self$count_test <- count_data(df_test)
+      # Convert date column to instants if necessary
+      if (convert) self$df_test <- convert_dates(df_test)
+      else self$df_test <- df_test
+      # Create count data
+      self$count_test <- private$get_count_data(self$df_test)
       gam_predict <- predict(self$gam_fitted, newdata = self$count_test)
-    } else gam_predict <- predict(self$gam_fitted)
+    } else { # No test data, predict on training data
+      gam_predict <- predict(self$gam_fitted)
+    }
     self$predictions <- gam_predict
   }
 ), private = list(
@@ -269,7 +283,7 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
     # Crime type data included
     if (self$include_crimetype) {
       # Ensure FBI code is sorted alphabetically
-      df$fbi_code %<>% forcats::fct_relevel(sort)
+      df$fbi_code %<>% fct_relevel(sort)
       count_data <- df %>% 
         mutate(!!eval(self$region) := factor(get(self$region))) %>%
         count(get(self$region), get(self$time_period), fbi_code) %>%
@@ -284,16 +298,17 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
                !!eval(self$region) := `get(self$region)`) %>%
         arrange(eval(self$time_period), eval(self$region))
     }
+    return(count_data)
   },
   # Construct a neighbourhood list for beats or community areas
   get_nbd_list = function() {
-    if (self$region == "community") {
-      bounds <- data(beat_bounds)
-      nbd_list <- spdep::poly2nb(bounds, row.names = bounds$beat)
+    if (self$region == "beat") {
+      data("beat_bounds")
+      nbd_list <- poly2nb(beat_bounds, row.names = beat_bounds$beat)
     }
     else {
-      bounds <- data(community_bounds)
-      nbd_list <- spdep::poly2nb(bounds, row.names = bounds$community)
+      data("community_bounds")
+      nbd_list <- poly2nb(community_bounds, row.names = community_bounds$community)
     }
     # Name the rows in the list
     names(nbd_list) <- attr(nbd_list, "region.id")
