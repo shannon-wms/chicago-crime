@@ -4,10 +4,13 @@
 \alias{convert_dates}
 \title{Convert dates to other formats in dataframe}
 \usage{
-convert_dates(df, as_factors = TRUE, exclude = NULL)
+convert_dates(df, date_col = "date", as_factors = TRUE, exclude = NULL)
 }
 \arguments{
-\item{df}{Data frame containing `date` column to extract instants from.}
+\item{df}{Data frame containing a column with date-time entries to extract 
+instants from.}
+
+\item{date_col}{The name of the column with date-time entries, defaults to "date".}
 
 \item{as_factors}{Whether to convert `month`, `week`, `day` and `hour`
 into factors.}
@@ -15,7 +18,7 @@ into factors.}
 \item{exclude}{Specifies which instants to exclude from data frame returned.}
 }
 \value{
-Data frame with `date` converted into instants.
+Data frame `df` with entries of `date_col` converted into instants.
 }
 \description{
 Convert dates to other formats in dataframe

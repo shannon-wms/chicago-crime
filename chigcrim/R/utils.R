@@ -11,6 +11,7 @@ NULL
 
 #' Parse matrix into useful format for ML algorithms
 #'
+#' @description
 #' If a matrix is passed, function checks that it is not a character matrix.
 #' If a data frame is passed, the function similarly checks the types, and
 #' one hot encodes factors.
@@ -49,6 +50,7 @@ parse_X <- function(X){
 #' and longitude.
 #' @param na_omit Whether to omit observations with NA values.
 #' @return tibble data frame of Chicago Crime data.
+#' @export
 load_data <- function(year = NULL, strings_as_factors = TRUE,
                       drop_location = TRUE, na_omit = FALSE) {
 
@@ -134,77 +136,30 @@ yday_float = function(timestamp){
 
 
 #' Indexed cross-validation for R6 class
-#' Computes cross validation using specific indexes (rows) of the data set
+#' 
+#' @description 
+#' Computes cross-validation error using specified indexes (rows) of the data set
 #' as the test set.
 #' @param object R6 class with fit and predict methods.
-#' @param X Matrix of data.
+#' @param X Data matrix
 #' @param y Vector of observations.
 #' @param error Function to assess error.
-#' @param idxs Vector of indices corresponding with test data.
+#' @param index Vector of indexes corresponding to test data.
 #'
-#' @return Average error across the folds.
-cv_R6_idxs <- function(object, X, y, error, idxs){
-  X_train <- X[-idxs, , drop = FALSE]
-  X_test <- X[idxs, , drop = FALSE]
-  y_train <- y[-idxs]
-  y_test <- y[idxs]
-
+#' @return Test error.
+#' @export
+cv_eval <- function(object, X, y, error, index){
+  # Separate X and y into training and test data
+  X_train <- X[-index, , drop = FALSE]
+  X_test <- X[index, , drop = FALSE]
+  y_train <- y[-index]
+  y_test <- y[index]
+  # Fit training data
   object$fit(X_train, y_train)
+  # Predict on test data
   y_hat <- object$predict(X_test)
-
+  # Compute error
   error(y_hat, y_test)
-}
-
-#' Cross-validation error for R6 class
-#' Standard cross validation without folds.
-#' @param object R6 class with fit and predict methods
-#' @param X Matrix of data
-#' @param y Vector of observations
-#' @param error Function to calculate error (taking y and y_hat)
-#' @param test_size Proportion of data to use for testing
-#'
-#' @return Result of error function
-#' @export
-#' @examples
-#' n <- 50
-#' X <- matrix(runif(n, -2,4), nrow=n, ncol=1)
-#' y <- as.vector(sin(X)) + rnorm(n, sd = 0.3)
-#' kr <- KernelRidge$new("rbf", lambda = 1, 3)
-#' cv_R6(kr, X, y, squared_error_loss, 0.2)
-cv_R6 <- function(object, X, y, error, test_size){
-  n <- nrow(X)
-  idxs <- sample(1:n, round(test_size*n))
-  cv_R6_idxs(object, X, y, error, idxs)
-}
-
-
-#' K-fold cross validation for R6 class
-#'
-#' @param object R6 class with fit and predict methods
-#' @param X Matrix of data
-#' @param y Vector of observations
-#' @param error Function to calculate error (taking y and y_hat)
-#' @param k Number of folds to use
-#'
-#' @return Mean error across folds
-#' @export
-#'
-#' @examples
-#' n <- 50
-#' X <- matrix(runif(n, -2,4), nrow=n, ncol=1)
-#' y <- as.vector(sin(X)) + rnorm(n, sd = 0.3)
-#' kr <- KernelRidge$new("rbf", lambda = 1, 3)
-#' cv_R6_k_fold(kr, X, y, squared_error_loss, 5)
-cv_R6_k_fold <- function(object, X, y, error, k){
-  n <- nrow(X)
-  parts <- split(sample(1:n), 1:k)
-
-  errors <- c()
-  for (idxs in parts){
-    err <- cv_R6_idxs(object, X, y, error, idxs)
-    errors <- c(errors, err)
-  }
-  mean(errors)
 }
 
 #' K-fold cross-validation for R6 class with parallel computation
@@ -220,6 +175,7 @@ cv_R6_k_fold <- function(object, X, y, error, k){
 #' @return List of length equal to that of `error_funcs` with each element 
 #' containing a vector of length `n_reps` corresponding to the mean error 
 #' averaged over `k` folds.
+#' @export
 kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FALSE, n_threads = NULL) {
   n <- nrow(X)
   m <- length(error_funcs)
@@ -239,9 +195,9 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FAL
       errors <- list()
       folds <- split(sample(1:n), 1:k)
       for (j in 1:k) {
-        errors[[j]] <- mapply(cv_R6_idxs, error = error_funcs, 
+        errors[[j]] <- mapply(cv_eval, error = error_funcs, 
                             MoreArgs = list(object = object, X = X, y = y,
-                                            idxs = folds[[j]]))
+                                            index = folds[[j]]))
       }
       return(errors)
     }
@@ -252,9 +208,9 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FAL
       errors <- list()
       folds <- split(sample(1:n), 1:k)
       for (j in 1:k) {
-        errors[[j]] <- mapply(cv_R6_idxs, error = error_funcs, 
+        errors[[j]] <- mapply(cv_eval, error = error_funcs, 
                               MoreArgs = list(object = object, X = X, y = y,
-                                              idxs = folds[[j]]))
+                                              index = folds[[j]]))
       }
       error_list[[i]] <- errors
     }
@@ -273,28 +229,31 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FAL
 
 #' Convert dates to other formats in dataframe
 #' 
-#' @param df Data frame containing `date` column to extract instants from.
+#' @param df Data frame containing a column with date-time entries to extract 
+#' instants from.
+#' @param date_col The name of the column with date-time entries, defaults to "date".
 #' @param as_factors Whether to convert `month`, `week`, `day` and `hour`
 #' into factors.
 #' @param exclude Specifies which instants to exclude from data frame returned.
-#' @return Data frame with `date` converted into instants.
-convert_dates <- function(df, as_factors = TRUE, exclude = NULL) {
+#' @return Data frame `df` with entries of `date_col` converted into instants.
+#' @export
+convert_dates <- function(df, date_col = "date", as_factors = TRUE, exclude = NULL) {
   if (as_factors) { # Convert columns to factors
     df %<>%
-      mutate(month = factor(month(date)),
-             week = factor(week(date)),
-             day = factor(day(date)),
-             hour = factor(hour(date)),
-             yday = yday(date),
-             date = date(date)) 
+      mutate(month = factor(month(get(date_col))),
+             week = factor(week(get(date_col))),
+             day = factor(day(get(date_col))),
+             hour = factor(hour(get(date_col))),
+             yday = yday(get(date_col)),
+             date = date(get(date_col))) 
   } else { # No factors
     df %<>%
-      mutate(month = month(date),
-             week = week(date),
-             day = day(date),
-             hour = hour(date),
-             yday = yday(date),
-             date = date(date)) 
+      mutate(month = month(get(date_col)),
+             week = week(get(date_col)),
+             day = day(get(date_col)),
+             hour = hour(get(date_col)),
+             yday = yday(get(date_col)),
+             date = date(get(date_col))) 
   }
   # Remove specified rows to exclude
   if (!is.null(exclude)) {

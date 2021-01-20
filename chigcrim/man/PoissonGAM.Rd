@@ -58,7 +58,7 @@ Create new PoissonGAM object.
 \subsection{Method \code{fit()}}{
 Function for fitting a GAM to the training dataset.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PoissonGAM$fit(df_train, n_threads = 1, ...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{PoissonGAM$fit(df_train, convert = FALSE, n_threads = 1, ...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -66,8 +66,10 @@ Function for fitting a GAM to the training dataset.
 \describe{
 \item{\code{df_train}}{The training dataset.}
 
-\item{\code{n_threads}}{The number of threads to use for parallel smoothing
+\item{\code{convert}}{Whether the column
 parameter selection methods in `gam`}
+
+\item{\code{n_threads}}{The number of threads to use for parallel smoothing}
 
 \item{\code{...}}{Additional arguments to be passed to `gam`}
 }
@@ -78,9 +80,9 @@ parameter selection methods in `gam`}
 \if{html}{\out{<a id="method-predict"></a>}}
 \if{latex}{\out{\hypertarget{method-predict}{}}}
 \subsection{Method \code{predict()}}{
-Function for predicting new dataset
+Prediction for a new dataset
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PoissonGAM$predict(df_test = NULL, ...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{PoissonGAM$predict(df_test = NULL, convert = FALSE, ...)}\if{html}{\out{</div>}}
 }
 
 }
