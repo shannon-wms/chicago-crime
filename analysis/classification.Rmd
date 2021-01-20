@@ -2,7 +2,13 @@
 title: "Arrest Classification"
 date: "18/01/2021"
 output: pdf_document
+
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = paste0(rprojroot::find_rstudio_root_file(), "/chigcrim"))
+```
 
 # Imports
 ```{r message=FALSE}
@@ -87,14 +93,6 @@ We will first consider a logistic regression classifier. Due to the size of the 
 X <- df %>% select(-arrest)
 y <- df$arrest
 
-n_test <- round(0.2*nrow(X))
-test_idxs <- sample(1:nrow(X), n_test)
-
-X_train <- X[-test_idxs, ]
-X_test <- X[test_idxs, ]
-y_train <- y[-test_idxs]
-y_test <- y[test_idxs]
-
 lr <- LogisticRegression$new(solver = "BFGS",
                              control = list(maxit=1000, reltol = 1e-4),
                              round_y_hat = TRUE)
@@ -103,8 +101,19 @@ classification_accuracy <- function(y_hat, y_test){
   sum(y_hat == y_test)/length(y_hat)
 }
 
+classification_sensitivity <- function(y_hat, y_test){
+  sum(y_hat[y_test == 1] == 1) / length(y_hat[y_test == 1])
+}
 
-kfold_cv(lr, X, y, list(classification_accuracy), k = 5, n_reps = 2, parallel = TRUE)
+classification_specificity <- function(y_hat, y_test){
+  sum(y_hat[y_test == 0] == 0) / length(y_hat[y_test == 0])
+}
+
+
+kfold_cv(lr, X, y, list(classification_accuracy,
+                        classification_sensitivity,
+                        classification_specificity),
+         k = 5, n_reps = 3, parallel = TRUE, n_threads = 3)
 
 
 lr$fit(X_train, y_train)

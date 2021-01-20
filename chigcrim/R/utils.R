@@ -143,6 +143,7 @@ yday_float = function(timestamp){
 #' @param y Vector of observations.
 #' @param error Function to assess error.
 #' @param idxs Vector of indices corresponding with test data.
+#' @export
 #'
 #' @return Average error across the folds.
 cv_R6_idxs <- function(object, X, y, error, idxs){
@@ -231,7 +232,7 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FAL
     registerDoParallel(cluster)
     # Load the required packages to the parallel sessions
     clusterEvalQ(cluster, {
-      #devtools::load_all()
+      devtools::load_all()
       library(caret)
     })
     # Export the R objects in the current environment to the parallel sessions
