@@ -7,7 +7,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+knitr::opts_knit$set(root.dir = "chigcrim")
+                       #rprojroot::find_rstudio_root_file())
 ```
 
 ## Imports
@@ -17,7 +18,7 @@ library(mgcv)
 library(tidyverse)
 library(lubridate)
 library(spatstat)
-devtools::load_all("chigcrim")
+devtools::load_all()
 ```
 
 ## Data
@@ -301,4 +302,12 @@ Comparing the GAM using spatial data and a neighbourhood list with a GAM using c
 gam_com <- gam(n ~ s(as.numeric(week), bs = "cc") + community_area,
     data = spatial_dat, family = "poisson", control = ctrl)
 summary(gam_com)
+```
+
+
+# Using PoissonGAM object
+
+
+```{r}
+spatial_dat
 ```
