@@ -13,6 +13,8 @@ library(tidyverse)
 library(data.table)
 library(lubridate)
 library(sf)
+library(rgdal)
+library(ggmap)
 
 devtools::load_all("../chigcrim/")
 ```
@@ -98,6 +100,7 @@ p
 
 Another option that has not been considered here is using a trigonometric transform of the data (with a period of a year), to try and capture the cycles with a simpler model. It is worth noting that whilst useful for interpolation, kernel ridge regression with a radial basis function kernel would have limited utility for forecasting crimes for into the future. We can see why this is if we try to extrapolate using these this model.
 
+
 ```{r}
 start_week_date <- max(df$week_start) + 7
 start_week_int <- max(df$cumulative_week) + 1
@@ -121,7 +124,10 @@ The cycles are captured solely due to being able to interpolate locally between 
 ## Predict number of crimes in a particular month for a particular community area
 The previous example used a single dimensional feature vector. We can also apply it to more complicated problems. Here we will consider the problem of predicting the number of crimes in a given month, for different community areas. The positions of the community areas will be represented by their centroids, as shown below:
 
-```{r warning=FALSE}
+```{r}
+shapefile <- readOGR("../data/community_areas.shp")
+shapefile_df <- fortify(shapefile)
+
 centroids <- st_read("../data/community_areas.shp", quiet = TRUE) %>%
   arrange(as.integer(area_numbe)) %>%
   st_centroid() %>%
@@ -129,10 +135,16 @@ centroids <- st_read("../data/community_areas.shp", quiet = TRUE) %>%
   as_tibble() %>%
   mutate(community_area = 1:nrow(.))
 
-ggplot(centroids, aes(X, Y)) +
-  geom_point(size = 4, colour = "steelblue2") +
-  theme_void()
+p2 <- ggplot(centroids, aes(X, Y)) +
+  geom_point(size = 6, colour = "steelblue1") +
+  geom_text(aes(label = community_area)) +
+  theme_void() + 
+  geom_path(data = shapefile_df, 
+          aes(x = long, y = lat, group = group),
+          color = 'grey3', size = .2)
+p2
 ```
+
 
 ### Read and prepare data
 ```{r}
@@ -162,6 +174,7 @@ df <- df %>%
   left_join(centroids, by = "community_area")
 
 ```
+
 ### Cross-validation
 As before, 5-fold cross validation will be used to choose the bandwidth parameter:
 ```{r warning=FALSE}
@@ -214,10 +227,19 @@ y_test <- y[test_idxs]
 kr_best$fit(X_train, y_train)
 y_hat <- kr_best$predict(X_test)
 
-qplot(y_test, y_hat, geom = "point") +
+p3 <- qplot(y_test, y_hat, geom = "point") +
   geom_abline(slope = 1, intercept = 0, colour = "red") +
   labs(x = "Actual number of crimes", y = "Predicted number of crimes")
+p3
 ```
+
+```{r echo=FALSE, results='hide', message=FALSE}
+# Save the plots for the methods report
+ggsave("../plots/kr_1.png", p)
+ggsave("../plots/kr_2.png", p2)
+ggsave("../plots/kr_3.png", p3)
+```
+
 
 We can see a good association between the actual number of crimes in a given month and community area, and the predicted number of crimes on this held-out data. Once again, this method would primarily be useful for interpolation, rather than extrapolation, for similar reasons as have been mentioned above.
 
