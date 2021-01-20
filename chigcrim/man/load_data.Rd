@@ -12,7 +12,8 @@ load_data(
 )
 }
 \arguments{
-\item{year}{integer in 2001:2020 specifying the desired year.}
+\item{year}{integer in 2001:2021 specifying the desired year, or two integers 
+specifying endpoints to filter between.}
 
 \item{strings_as_factors}{Whether to convert `iucr`, `primary_type`,
 `description`, `location_description` and `fbi_code` to factors.}
@@ -20,12 +21,12 @@ load_data(
 \item{drop_location}{Whether to drop location as it duplicates data in latitude
 and longitude.}
 
-\item{na_omit}{Whether to omit observations with NA values}
+\item{na_omit}{Whether to omit observations with NA values.}
 }
 \value{
-tibble Data frame of Chicago Crime data.
+tibble data frame of Chicago Crime data.
 }
 \description{
-Returns a data frame of Chicago Crime data from specified year, or entire dataset
-from 2001 to present if no year is specified.
+Returns a data frame of Chicago Crime data from specified year or range of years, 
+or returns entire dataset from 2001 to present if no years are specified.
 }

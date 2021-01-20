@@ -207,55 +207,68 @@ cv_R6_k_fold <- function(object, X, y, error, k){
   mean(errors)
 }
 
-#' @description 
-#' K-fold cross-validation for R6 class with parallel computation.
+#' K-fold cross-validation for R6 class with parallel computation
 #' 
 #' @param object R6 object with fit and predict methods.
 #' @param X Data matrix.
 #' @param y Response vector.
-#' @param error Function for calculating error.
+#' @param error_funcs List of functions for calculating error.
 #' @param n_reps Number of repeats.
 #' @param parallel Whether to compute in parallel.
 #' @param n_threads The number of parallel threads to use. If NULL, this is 
 #' chosen to be the number of cores minus one.
-kfold_cv <- function(object, X, y, error, k, n_reps = 1000, parallel = FALSE, n_threads = NULL) {
+#' @return List of length equal to that of `error_funcs` with each element 
+#' containing a vector of length `n_reps` corresponding to the mean error 
+#' averaged over `k` folds.
+kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FALSE, n_threads = NULL) {
   n <- nrow(X)
+  m <- length(error_funcs)
   if (parallel) { # Parallel computations
     if (is.null(n_threads)) cluster <- makeCluster(detectCores(logical = TRUE) - 1) 
     else cluster <- makeCluster(n_threads)
     registerDoParallel(cluster)
     # Load the required packages to the parallel sessions
     clusterEvalQ(cluster, {
-      library(chigcrim)
+      devtools::load_all("chigcrim")
       library(caret)
     })
-    # Export the R objects to the parallel sessions
-    clusterExport(cluster, c("object", "X", "y", "error", "n", "k"))
+    # Export the R objects in the current environment to the parallel sessions
+    clusterExport(cluster, c("object", "X", "y", "error_funcs", "n", "k"), 
+                  envir = environment())
     error_list <- foreach (i = 1:n_reps) %dopar% {
-      errors <- c()
+      errors <- list()
       folds <- split(sample(1:n), 1:k)
-      for (i in 1:k) {
-        indexes <- folds[[i]]
-        k_error <- cv_R6_idxs(object, X, y, error, indexes)
-        errors <- c(errors, k_error)
+      for (j in 1:k) {
+        errors[[j]] <- mapply(cv_R6_idxs, error = error_funcs, 
+                            MoreArgs = list(object = object, X = X, y = y,
+                                            idxs = folds[[j]]))
       }
       return(errors)
     }
+    stopCluster(cluster)
   } else {
     error_list <- list()
     for (i in 1:n_reps) {
-      errors <- c()
+      errors <- list()
       folds <- split(sample(1:n), 1:k)
-      for (i in 1:k) {
-        indexes <- folds[[i]]
-        k_error <- cv_R6_idxs(object, X, y, error, indexes)
-        errors <- c(errors, k_error)
+      for (j in 1:k) {
+        errors[[j]] <- mapply(cv_R6_idxs, error = error_funcs, 
+                              MoreArgs = list(object = object, X = X, y = y,
+                                              idxs = folds[[j]]))
       }
       error_list[[i]] <- errors
     }
   }
   # Average the list of errors
-  error_list %>% unlist() %>% mean()
+  mean_errors <- list()
+  for (i in 1:m) {
+    mean_errors[[i]] <- numeric(n_reps)
+    for (j in 1:n_reps) {
+      mean_errors[[i]][j] <- lapply(1:k, function(x) error_list[[j]][[x]][i]) %>%
+        unlist() %>% mean()
+    }
+  }
+  mean_errors
 }
 
 #' Convert dates to other formats in dataframe
