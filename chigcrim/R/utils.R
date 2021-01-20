@@ -8,6 +8,7 @@
 #' @import lubridate
 #' @import doParallel
 #' @import parallel
+#' @import foreach
 NULL
 
 #' Parse matrix into useful format for ML algorithms
