@@ -172,7 +172,6 @@ SupportVectorMachine <- R6Class("SupportVectorMachine", list(
   #' @param y Training data (vector).
   #' @param ... Additional arguments to be passed to `svm`.
   fit = function(X, y, ...){
-    library(e1071)
     df <- cbind(X, y)
     self$fitted_model <- svm(y ~ ., data = df, kernel = self$kernel,
                              type = "C-classification", cachesize = 120, ...)
