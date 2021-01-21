@@ -16,7 +16,7 @@ lr$predict(X)
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{lambda}}{Regularisation parameter (defualt=0).}
+\item{\code{lambda}}{Regularisation parameter (default=0).}
 
 \item{\code{solver}}{"BFGS", "CG" or "L-BFGS-B".}
 
@@ -25,6 +25,10 @@ lr$predict(X)
 \item{\code{y}}{Training y vector.}
 
 \item{\code{theta}}{The fitted parameters.}
+
+\item{\code{control}}{list passed to optim control.}
+
+\item{\code{round_y_hat}}{boolean, whether to round predictions to 0 and 1.}
 }
 \if{html}{\out{</div>}}
 }
@@ -46,7 +50,12 @@ lr$predict(X)
 \subsection{Method \code{new()}}{
 Create new LogisticRegression object.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$new(solver = "L-BFGS-B", lambda = 0)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$new(
+  solver = "L-BFGS-B",
+  lambda = 0,
+  control = NULL,
+  round_y_hat = FALSE
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -54,7 +63,11 @@ Create new LogisticRegression object.
 \describe{
 \item{\code{solver}}{"L-BFGS-B", "BFGS" or "CG". Default "L-BFGS-B".}
 
-\item{\code{lambda}}{regularisation parameter, defualt 0.}
+\item{\code{lambda}}{Regularisation parameter, defualt 0.}
+
+\item{\code{control}}{List passed to optim control.}
+
+\item{\code{round_y_hat}}{Whether to round predictions.}
 }
 \if{html}{\out{</div>}}
 }

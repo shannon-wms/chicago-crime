@@ -22,3 +22,8 @@ Imports:
     magrittr,
     mltools,
     readr,
+    mgcv,
+    doParallel,
+    spdep,
+    forcats,
+    foreach

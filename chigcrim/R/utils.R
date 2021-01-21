@@ -1,12 +1,14 @@
 # Script contains useful general purpose utility functions
 #' @importFrom data.table as.data.table
 #' @importFrom mltools one_hot
-#' @import RSocrata
+#' @importFrom RSocrata read.socrata
 #' @import dplyr
 #' @import magrittr
 #' @import readr
 #' @import lubridate
 #' @import doParallel
+#' @import parallel
+#' @import foreach
 NULL
 
 #' Parse matrix into useful format for ML algorithms
@@ -39,18 +41,20 @@ parse_X <- function(X){
 #' Download Chicago Crime data using Socrata API
 #'
 #' @description
-#' Returns a data frame of Chicago Crime data from specified year or range of years, 
+#' Returns a data frame of Chicago Crime data from specified year or range of years,
 #' or returns entire dataset from 2001 to present if no years are specified.
-#' @param year integer in 2001:2021 specifying the desired year, or two integers 
+#' @param year integer in 2001:2021 specifying the desired year, or two integers
 #' specifying endpoints to filter between.
 #' @param strings_as_factors Whether to convert `iucr`, `primary_type`,
 #' `description`, `location_description` and `fbi_code` to factors.
 #' @param drop_location Whether to drop location as it duplicates data in latitude
 #' and longitude.
 #' @param na_omit Whether to omit observations with NA values.
+#' @param limit Limit set on how many rows of data to obtain.
 #' @return tibble data frame of Chicago Crime data.
+#' @export
 load_data <- function(year = NULL, strings_as_factors = TRUE,
-                      drop_location = TRUE, na_omit = FALSE) {
+                      drop_location = TRUE, na_omit = FALSE, limit = NULL) {
 
   # Only accept NULL or valid years
   if (!is.null(year)) {
@@ -71,6 +75,15 @@ load_data <- function(year = NULL, strings_as_factors = TRUE,
   } else { # Single year chosen
     year <- as.character(year)
     full_url <- paste0(base_url, "?year=", year)
+  }
+  if (!is.null(limit)) {
+    if(is.na(as.numeric(limit))) return("Limit must be numeric.")
+    else { # Convert limit to a character integer
+      limit %<>% as.integer() %>% as.character()
+      # Add limit query to URL
+      full_url <- paste0(full_url, ifelse(is.null(year), "?$", "&$"),
+                            "limit=", limit)
+    }
   }
   # Pull the data
   df <- read.socrata(full_url, app_token = "avsRhaZaZTqeJOGhBuFJieRzJ") %>% tibble()
@@ -134,162 +147,179 @@ yday_float = function(timestamp){
 
 
 #' Indexed cross-validation for R6 class
-#' Computes cross validation using specific indexes (rows) of the data set
+#'
+#' @description
+#' Computes cross-validation error using specified indexes (rows) of the data set
 #' as the test set.
 #' @param object R6 class with fit and predict methods.
-#' @param X Matrix of data.
+#' @param X Data matrix
 #' @param y Vector of observations.
 #' @param error Function to assess error.
-#' @param idxs Vector of indices corresponding with test data.
+#' @param index Vector of indexes corresponding to test data.
 #'
-#' @return Average error across the folds.
-cv_R6_idxs <- function(object, X, y, error, idxs){
-  X_train <- X[-idxs, , drop = FALSE]
-  X_test <- X[idxs, , drop = FALSE]
-  y_train <- y[-idxs]
-  y_test <- y[idxs]
-
+#' @return Test error.
+#' @export
+cv_eval <- function(object, X, y, error, index){
+  # Separate X and y into training and test data
+  X_train <- X[-index, , drop = FALSE]
+  X_test <- X[index, , drop = FALSE]
+  y_train <- y[-index]
+  y_test <- y[index]
+  # Fit training data
   object$fit(X_train, y_train)
+  # Predict on test data
   y_hat <- object$predict(X_test)
-
+  # Compute error
   error(y_hat, y_test)
 }
 
-#' Cross-validation error for R6 class
-#' Standard cross validation without folds.
-#' @param object R6 class with fit and predict methods
-#' @param X Matrix of data
-#' @param y Vector of observations
-#' @param error Function to calculate error (taking y and y_hat)
-#' @param test_size Proportion of data to use for testing
+#' K-fold cross-validation for R6 class with parallel computation
 #'
-#' @return Result of error function
-#' @export
-#' @examples
-#' n <- 50
-#' X <- matrix(runif(n, -2,4), nrow=n, ncol=1)
-#' y <- as.vector(sin(X)) + rnorm(n, sd = 0.3)
-#' kr <- KernelRidge$new("rbf", lambda = 1, 3)
-#' cv_R6(kr, X, y, squared_error_loss, 0.2)
-cv_R6 <- function(object, X, y, error, test_size){
-  n <- nrow(X)
-  idxs <- sample(1:n, round(test_size*n))
-  cv_R6_idxs(object, X, y, error, idxs)
-}
-
-
-#' K-fold cross validation for R6 class
-#'
-#' @param object R6 class with fit and predict methods
-#' @param X Matrix of data
-#' @param y Vector of observations
-#' @param error Function to calculate error (taking y and y_hat)
-#' @param k Number of folds to use
-#'
-#' @return Mean error across folds
-#' @export
-#'
-#' @examples
-#' n <- 50
-#' X <- matrix(runif(n, -2,4), nrow=n, ncol=1)
-#' y <- as.vector(sin(X)) + rnorm(n, sd = 0.3)
-#' kr <- KernelRidge$new("rbf", lambda = 1, 3)
-#' cv_R6_k_fold(kr, X, y, squared_error_loss, 5)
-cv_R6_k_fold <- function(object, X, y, error, k){
-  n <- nrow(X)
-  parts <- split(sample(1:n), 1:k)
-
-  errors <- c()
-  for (idxs in parts){
-    err <- cv_R6_idxs(object, X, y, error, idxs)
-    errors <- c(errors, err)
-  }
-  mean(errors)
-}
-
-#' @description 
-#' K-fold cross-validation for R6 class with parallel computation.
-#' 
 #' @param object R6 object with fit and predict methods.
 #' @param X Data matrix.
 #' @param y Response vector.
-#' @param error Function for calculating error.
+#' @param error_funcs List of functions for calculating error.
+#' @param k Number of folds.
 #' @param n_reps Number of repeats.
 #' @param parallel Whether to compute in parallel.
-#' @param n_threads The number of parallel threads to use. If NULL, this is 
+#' @param n_threads The number of parallel threads to use. If NULL, this is
 #' chosen to be the number of cores minus one.
-kfold_cv <- function(object, X, y, error, k, n_reps = 1000, parallel = FALSE, n_threads = NULL) {
+#' @return List of length equal to that of `error_funcs` with each element
+#' containing a vector of length `n_reps` corresponding to the mean error
+#' averaged over `k` folds.
+#' @export
+kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FALSE, n_threads = NULL) {
   n <- nrow(X)
+  m <- length(error_funcs)
   if (parallel) { # Parallel computations
-    if (is.null(n_threads)) cluster <- makeCluster(detectCores(logical = TRUE) - 1) 
+    if (is.null(n_threads)) cluster <- makeCluster(detectCores(logical = TRUE) - 1)
     else cluster <- makeCluster(n_threads)
     registerDoParallel(cluster)
     # Load the required packages to the parallel sessions
     clusterEvalQ(cluster, {
-      library(chigcrim)
+      devtools::load_all()
       library(caret)
     })
-    # Export the R objects to the parallel sessions
-    clusterExport(cluster, c("object", "X", "y", "error", "n", "k"))
+    # Export the R objects in the current environment to the parallel sessions
+    clusterExport(cluster, c("object", "X", "y", "error_funcs", "n", "k"),
+                  envir = environment())
     error_list <- foreach (i = 1:n_reps) %dopar% {
-      errors <- c()
+      errors <- list()
       folds <- split(sample(1:n), 1:k)
-      for (i in 1:k) {
-        indexes <- folds[[i]]
-        k_error <- cv_R6_idxs(object, X, y, error, indexes)
-        errors <- c(errors, k_error)
+      for (j in 1:k) {
+        errors[[j]] <- mapply(cv_eval, error = error_funcs,
+                            MoreArgs = list(object = object, X = X, y = y,
+                                            index = folds[[j]]))
       }
       return(errors)
     }
+    stopCluster(cluster)
   } else {
     error_list <- list()
     for (i in 1:n_reps) {
-      errors <- c()
+      errors <- list()
       folds <- split(sample(1:n), 1:k)
-      for (i in 1:k) {
-        indexes <- folds[[i]]
-        k_error <- cv_R6_idxs(object, X, y, error, indexes)
-        errors <- c(errors, k_error)
+      for (j in 1:k) {
+        errors[[j]] <- mapply(cv_eval, error = error_funcs,
+                              MoreArgs = list(object = object, X = X, y = y,
+                                              index = folds[[j]]))
       }
       error_list[[i]] <- errors
     }
   }
   # Average the list of errors
-  error_list %>% unlist() %>% mean()
+  mean_errors <- list()
+  for (i in 1:m) {
+    mean_errors[[i]] <- numeric(n_reps)
+    for (j in 1:n_reps) {
+      mean_errors[[i]][j] <- lapply(1:k, function(x) error_list[[j]][[x]][i]) %>%
+        unlist() %>% mean()
+    }
+  }
+  names(mean_errors) <- names(error_funcs)
+  mean_errors
 }
 
 #' Convert dates to other formats in dataframe
-#' 
-#' @param df Data frame containing `date` column to extract instants from.
+#'
+#' @param df Data frame containing a column with date-time entries to extract
+#' instants from.
+#' @param date_col The name of the column with date-time entries, defaults to "date".
 #' @param as_factors Whether to convert `month`, `week`, `day` and `hour`
 #' into factors.
 #' @param exclude Specifies which instants to exclude from data frame returned.
-#' @return Data frame with `date` converted into instants.
-convert_dates <- function(df, as_factors = TRUE, exclude = NULL) {
+#' @return Data frame `df` with entries of `date_col` converted into instants.
+#' @export
+convert_dates <- function(df, date_col = "date", as_factors = TRUE, exclude = NULL) {
   if (as_factors) { # Convert columns to factors
     df %<>%
-      mutate(month = factor(month(date)),
-             week = factor(week(date)),
-             day = factor(day(date)),
-             hour = factor(hour(date)),
-             yday = yday(date),
-             date = date(date)) 
+      mutate(month = factor(month(get(date_col))),
+             week = factor(week(get(date_col))),
+             day = factor(day(get(date_col))),
+             hour = factor(hour(get(date_col))),
+             yday = yday(get(date_col)),
+             date = date(get(date_col)))
   } else { # No factors
     df %<>%
-      mutate(month = month(date),
-             week = week(date),
-             day = day(date),
-             hour = hour(date),
-             yday = yday(date),
-             date = date(date)) 
+      mutate(month = month(get(date_col)),
+             week = week(get(date_col)),
+             day = day(get(date_col)),
+             hour = hour(get(date_col)),
+             yday = yday(get(date_col)),
+             date = date(get(date_col)))
   }
   # Remove specified rows to exclude
   if (!is.null(exclude)) {
     if (!all(exclude %in% c("month", "week", "day", "hour", "yday", "date"))) {
-      return('Ensure that exclude is a valid selection from 
+      return('Ensure that exclude is a valid selection from
              "month", "week", "day", "hour", "yday", "date".')
     } else df <- df[, !names(df) %in% exclude]
   }
   return(df)
 }
 
+
+
+#' Accuracy
+#' Calculates the proportion of correctly classified predictions.
+#' @param y_hat 0 1 vector of predictions.
+#' @param y_test 0 1 vector of observations.
+#'
+#' @return float proportion of correct predictions
+#' @export
+#'
+#' @examples
+#' classification_accuracy(c(0,1,0), c(0,1,1))
+classification_accuracy <- function(y_hat, y_test){
+  sum(y_hat == y_test)/length(y_hat)
+}
+
+#' Sensitivity
+#' Calculates the sensitivity (proportion of positives correctly identified).
+#'
+#' @param y_hat 0 1 vector of predictions.
+#' @param y_test 0 1 vector of observations.
+#'
+#' @return float sensitivity
+#' @export
+#'
+#' @examples
+#' classification_sensitivity(c(0,1,0), c(0,1,1))
+classification_sensitivity <- function(y_hat, y_test){
+  sum(y_hat[y_test == 1] == 1) / length(y_hat[y_test == 1])
+}
+
+#' Specificity
+#' Calculates the specificity (proportion of negatives correctly identified).
+#'
+#' @param y_hat 0 1 vector of predictions.
+#' @param y_test 0 1 vector of observations.
+#'
+#' @return float specificity.
+#' @export
+#'
+#' @examples
+#' classification_specificity(c(0,1,0), c(0,1,1))
+classification_specificity <- function(y_hat, y_test){
+  sum(y_hat[y_test == 0] == 0) / length(y_hat[y_test == 0])
+}
