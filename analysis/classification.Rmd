@@ -1,6 +1,5 @@
 ---
 title: "Arrest Classification"
-date: "18/01/2021"
 output: pdf_document
 
 ---

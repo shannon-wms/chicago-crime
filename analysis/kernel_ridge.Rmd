@@ -5,6 +5,7 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = paste0(rprojroot::find_rstudio_root_file(), "/chigcrim"))
 ```
 
 ## Imports
@@ -17,15 +18,25 @@ library(rgdal)
 library(ggmap)
 
 devtools::load_all("../chigcrim/")
+
+set.seed(1)
 ```
 
-# Interpolating number of crimes using kernel ridge regression
-Estimating the number of crimes is a regression task. Here we will consider estimating the the number of crimes in a given week using kernel ridge regression.The kernel ridge regression implementation includes a linear kernel (equivalent to ridge regression), a polynomial kernel, and a radial basis function kernel. As the relationship is complex and non-linear, only the radial basis function feature transform will be considered here, which implicitly induces an infinite dimensional feature transform. First we will consider a simple, single dimensional example, using just the number of crimes each week as the feature.
+## Interpolating number of crimes using kernel ridge regression
+Estimating the number of crimes is a regression task. Here we will consider estimating the the number of crimes using kernel ridge regression. The kernel ridge regression implementation includes a linear kernel (equivalent to ridge regression), a polynomial kernel, and a radial basis function kernel. As the relationship is complex and non-linear, only the radial basis function feature transform will be considered here, which implicitly induces an extremely flexible infinite dimensional feature transform.
+
+## Assessing performance
+In these regression tasks, two metrics will be used to assess performance, root mean square error, and the $R^2$ value.
+```{r}
+metrics <- list(rmse = rmse_loss, r2 = r_squared)
+```
+
+Repeated k-fold cross validation is used, and hyperparameters are chosen based on the root mean square error metric. Specifically, we will use 3 repetitions of 5-fold cross validation at each parameter value (ran in parallel).
 
 ## Predicting the number of crimes each week
+First we will consider a simple, single dimensional example, using just the number of crimes each week as the feature.
 
 ### Read and prepare data
-Due to speed limitations, it is convenient to consider summarising the data into crimes per week.
 ```{r}
 df <- fread("../data/crimes-2001-present.csv", select = c("Date"))
 
@@ -44,6 +55,8 @@ df <- df %>%
 
 df <- df[order(df$year, df$week),]
 df$cumulative_week <- 1:nrow(df)
+
+df
 ```
 
 ### Cross-validation
@@ -55,37 +68,41 @@ y <- df$n_crimes
 
 bandwidth <- c(0.1, 1, 5, 10, 100)
 
-mse_vec <- c()
-set.seed(2)
+rmse_vec <- c()
 for (i in 1:length(bandwidth)){
   kr = KernelRidge$new("rbf", lambda = 0.001, bandwidth[i])
-  mse <- cv_R6_k_fold(kr, X, y, squared_error_loss, 5)
-  mse_vec <- c(mse_vec, mse)
+  cv_results <- kfold_cv(kr, X, y, metrics, 5, n_reps = 3,
+                         parallel = TRUE, n_threads = 3 )
+
+  mean_rmse <- mean(cv_results$rmse)
+  rmse_vec <- c(rmse_vec, mean_rmse)
   
   # Save best model
-  if (mse == min(mse_vec)){
+  if (mean_rmse == min(rmse_vec)){
     kr_best <- kr$clone(deep=TRUE)
+    cv_results_best <- cv_results
   }
 }
 
-rbf_results <- data.frame(bandwidth, mse = mse_vec)
-
-rmse <- sqrt(rbf_results$mse[rbf_results$bandwidth == kr_best$A])
-sprintf("Optimal bandwidth found: %s", kr_best$A)
-sprintf("Which had root mean square error: %s", rmse)
+rbf_results <- data.frame(bandwidth, rmse = rmse_vec)
 
 ggplot(rbf_results) +
-  geom_line(aes(x = bandwidth, y = mse)) +
+  geom_line(aes(x = bandwidth, y = rmse)) +
   scale_x_log10() +
   scale_y_log10()
 ```
 
-A bandwidth of `r kr_best$A` gave the lowest cross-validation error.
+We can see that a bandwidth parameter value of `r kr_best$A` gave the lowest root mean square error. We can look at the results for the three repeats of 5-fold cross-validation for this model:
+```{r}
+as_tibble(cv_results_best)
+```
+The model performs very well, explaining `r round(mean(cv_results_best$r2), 4)*100`% of the variance on average.
 
-### Plotting the prediction function
+### Plot results
 As this is single dimensional we can plot the prediction function for the best model:
 
 ```{r}
+y_hat = kr_best$fit(X, y)
 y_hat = kr_best$predict(X)
 
 # Plot output
@@ -119,12 +136,14 @@ p +
   geom_line(data = extra_df, aes(extra_dates, extra_y_hat), colour = "steelblue2")
 ```
 
-The cycles are captured solely due to being able to interpolate locally between points. Hence, when extrapolating with a radial basis function kernel, no cycles are predicted, so the out-of-sample accuracy would drop substantially. The cross-validation error found is only applicable if the new data followed the same distribution, and that is not the case when considering future data. For this reason, other models, such as generalised additive models, will be considered for forecasting crimes in subsequent sections.
+The cycles are captured solely due to being able to interpolate locally between points. Hence, when extrapolating with a radial basis function kernel, no cycles are predicted, so the out-of-sample accuracy would drop substantially. The cross-validation error found is only applicable if the new data followed the same distribution, and that is not the case when considering future data.
 
 ## Predict number of crimes in a particular month for a particular community area
-The previous example used a single dimensional feature vector. We can also apply it to more complicated problems. Here we will consider the problem of predicting the number of crimes in a given month, for different community areas. The positions of the community areas will be represented by their centroids, as shown below:
+The previous example used a single dimensional feature vector. We can also apply it to more complicated problems. Here we will consider the problem of predicting the number of crimes in a given month, for different community areas.
 
-```{r}
+### Read and prepare data
+The positions of the community areas will be represented by their centroids, as shown below:
+```{r warning=FALSE, message=FALSE}
 shapefile <- readOGR("../data/community_areas.shp")
 shapefile_df <- fortify(shapefile)
 
@@ -145,9 +164,8 @@ p2 <- ggplot(centroids, aes(X, Y)) +
 p2
 ```
 
-
-### Read and prepare data
-```{r}
+We will consider the time period from 2016 to 2020 (inclusive):
+```{r message=FALSE}
 # Can use below but slow so better to download data set from website
 # df <- load_data(strings_as_factors = FALSE)
 
@@ -155,15 +173,12 @@ df <- fread("../data/crimes-2001-present.csv",
              select = c("Date", "Community Area"))
 
 colnames(df) <- str_replace(tolower(colnames(df)), " ", "_")
-```
 
-
-```{r message=FALSE}
 df <- df %>%
   mutate(date = as.Date(mdy_hms(date)),
          year = year(date),
          month = month(date)) %>%
-  filter(date >= "2015-01-01", year != 2021) %>%  # Not enough data on 2021 yet
+  filter(date >= "2017-01-01", year != 2021) %>%  # Not enough data on 2021 yet
   drop_na()
 
 df <- df %>%
@@ -176,7 +191,7 @@ df <- df %>%
 ```
 
 ### Cross-validation
-As before, 5-fold cross validation will be used to choose the bandwidth parameter:
+As before, 3 times repeated 5-fold cross validation will be used to choose the bandwidth parameter:
 ```{r warning=FALSE}
 X <- df %>%
   ungroup() %>%
@@ -188,32 +203,38 @@ y <- df$n_crimes
 
 bandwidth <- c(0.1, 1, 5, 10, 100)
 
-mse_vec <- c()
+rmse_vec <- c()
 set.seed(3)
 for (i in 1:length(bandwidth)){
   kr = KernelRidge$new("rbf", lambda = 0.001, bandwidth[i])
-  mse <- cv_R6_k_fold(kr, X, y, squared_error_loss, 5)
-  mse_vec <- c(mse_vec, mse)
+  cv_results <- kfold_cv(kr, X, y, metrics, 5, n_reps = 3,
+                         parallel = TRUE, n_threads = 3 )
+  mean_rmse <- mean(cv_results$rmse)
+  rmse_vec <- c(rmse_vec, mean_rmse)
   
   # Save best model
-  if (mse == min(mse_vec)){
+  if (mean_rmse == min(rmse_vec)){
     kr_best <- kr$clone(deep=TRUE)
+    cv_results_best <- cv_results
   }
 }
 
-rbf_results <- data.frame(bandwidth, mse = mse_vec)
-
-rmse <- sqrt(rbf_results$mse[rbf_results$bandwidth == kr_best$A])
-sprintf("Optimal bandwidth found: %s", kr_best$A)
-sprintf("Which had root mean square error: %s", rmse)
+rbf_results <- data.frame(bandwidth, rmse = rmse_vec)
 
 ggplot(rbf_results) +
-  geom_line(aes(x = bandwidth, y = mse)) +
+  geom_line(aes(x = bandwidth, y = rmse)) +
   scale_x_log10() +
   scale_y_log10()
 
 ```
 
+We can see that a bandwidth parameter value of `r kr_best$A` gave the lowest root mean square error. Again, we can look at the results for the three repeats of 5-fold cross-validation for this model:
+```{r}
+as_tibble(cv_results_best)
+```
+The model explained `r round(mean(cv_results_best$r2), 4)*100`% of the variance on average. The lower $R^2$ value is expected for this model, as in contrast to the first model, observations were not averaged over the whole of Chicago.
+
+### Plot results
 Although being higher dimensional so difficult to plot, we can plot the predicted values against the observed values on a held out data set:
 ```{r}
 test_idxs <- sample(1:nrow(X), round(0.2*nrow(X)))
@@ -240,6 +261,7 @@ ggsave("../plots/kr_2.png", p2)
 ggsave("../plots/kr_3.png", p3)
 ```
 
+We can see a good association between the actual number of crimes in a given month and community area, and the predicted number of crimes on this held-out data.
 
-We can see a good association between the actual number of crimes in a given month and community area, and the predicted number of crimes on this held-out data. Once again, this method would primarily be useful for interpolation, rather than extrapolation, for similar reasons as have been mentioned above.
-
+## Conclusion
+We can see that kernel ridge regression provides prediction functions that explain a high proportion of the variance. A major limitation of this method for predicting the number of crimes is that it would be primarily be useful for interpolation, rather than extrapolation, for the reasons outlined above. In the subsequent section, we explore generalised additive models, which form a more principled approach for forecasting the number of crimes.

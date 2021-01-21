@@ -184,6 +184,36 @@ squared_error_loss <- function(y_hat, y){
   mean((y_hat - y)^2)
 }
 
+#' Root mean squared error loss
+#'
+#' @param y_hat Vector of predictions.
+#' @param y Vector of observed values.
+#'
+#' @return Float root mean squared error loss
+#' @export
+#'
+#' @examples
+#' rmse_loss(c(1,2,3), c(2,3,2))
+rmse_loss <- function(y_hat, y){
+  sqrt(mean((y_hat - y)^2))
+}
+
+#' R-Squared
+#'
+#' Calculates the R2 value.
+#'
+#' @param y_hat Vector of predictions.
+#' @param y Vector of observed values.
+#'
+#' @return Float R2 value between 0 and 1.
+#' @export
+#'
+#' @examples
+#' r_squared(c(1,2,3), c(2,3,2))
+r_squared <- function(y_hat, y){
+  cor(y_hat, y)^2
+}
+
 #' Poisson GAM Regression
 #'
 #' @description
