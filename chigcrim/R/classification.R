@@ -24,6 +24,8 @@ sigmoid <- function(z){
 #' @field X Training X (dataframe or matrix).
 #' @field y Training y vector.
 #' @field theta The fitted parameters.
+#' @field control list passed to optim control.
+#' @field round_y_hat boolean, whether to round predictions to 0 and 1.
 #' @export
 #' @examples
 #' X <- subset(mtcars, select = c("mpg", "wt"))
@@ -37,17 +39,25 @@ LogisticRegression <- R6Class("LogisticRegression", list(
   X = NULL,
   y = NULL,
   theta = NULL,
+  control = NULL,
+  round_y_hat = NULL,
 
   #' @description
   #' Create new LogisticRegression object.
   #' @param solver "L-BFGS-B", "BFGS" or "CG". Default "L-BFGS-B".
-  #' @param lambda regularisation parameter, defualt 0.
-  initialize = function(solver = "L-BFGS-B", lambda=0){
+  #' @param lambda Regularisation parameter, defualt 0.
+  #' @param control List passed to optim control.
+  #' @param round_y_hat Whether to round predictions.
+  initialize = function(solver = "L-BFGS-B", lambda = 0,
+                        control = NULL, round_y_hat = FALSE){
     stopifnot(solver %in% c("BFGS", "CG", "L-BFGS-B"))
     stopifnot(lambda >= 0)
+    stopifnot(is.logical(round_y_hat))
 
     self$lambda <- lambda
     self$solver <- solver
+    self$control <- control
+    self$round_y_hat <- round_y_hat
   },
 
   #' @description
@@ -89,8 +99,12 @@ LogisticRegression <- R6Class("LogisticRegression", list(
     bias <- 1
     X <- cbind(bias, X)
     init_theta <- rep(0, ncol(X))
-    optim_res <- optim(init_theta, fn = self$log_loss, gr = self$grad_log_loss,
-                   method = self$solver, X = X, y = y, ...)
+
+    optim_res <- optim(
+      init_theta, fn = self$log_loss, gr = self$grad_log_loss,
+      method = self$solver, X = X, y = y, control = self$control, ...
+      )
+
     if (optim_res$convergence == 1){
       warning("The algorithm did not converge.")
     }
@@ -109,6 +123,9 @@ LogisticRegression <- R6Class("LogisticRegression", list(
     X <- cbind(bias, parse_X(X))
     predictions <- as.vector(sigmoid(X %*% self$theta))
     names(predictions) <- rownames(X)
+    if (self$round_y_hat){
+      predictions <- round(predictions)
+    }
     predictions
   },
 
@@ -125,3 +142,81 @@ LogisticRegression <- R6Class("LogisticRegression", list(
     invisible(self)
   }
 ))
+
+
+#' Support vector machine wrapper
+#' R6 class wrapper for support vector machine implementation from e1071 package.
+#'
+#' @field kernel Kernel function to use (as in svm documentation)
+#' @field fitted_model svm object.
+#' @export
+SupportVectorMachine <- R6Class("SupportVectorMachine", list(
+  kernel = NULL,
+  fitted_model = NULL,
+
+  #' @description
+  #' Create new SVM object.
+  #' @param kernel Kernel function to use.
+  initialize = function(kernel = "radial"){
+    self$kernel <- kernel
+  },
+
+  #' @description
+  #' Fit the object to training data X and y.
+  #' @param X Training data (dataframe or matrix).
+  #' @param y Training data (vector).
+  #' @param ... Additional arguments passed to svm..
+  fit = function(X, y, ...){
+    library(e1071)
+    df <- cbind(X, y)
+    self$fitted_model <- svm(y ~ ., data = df, kernel = self$kernel,
+                             type = "C-classification", cachesize = 120, ...)
+    invisible(self)
+  },
+
+  #' @description
+  #' Predict on X.
+  #' @param X X training or testing X.
+  predict = function(X){
+    y_hat <- predict(self$fitted_model, newdata = X)
+    as.logical(y_hat)
+  }
+))
+
+
+#' Random forest
+#' R6 class wrapper for random forest. Uses randomForest package.
+#'
+#' @field fitted_model fitted randomForest object.
+#' @export
+RandomForest <- R6Class("RandomForest", list(
+  fitted_model = NULL,
+
+  #' @description
+  #' Create new randomForest object.
+  #' @param kernel Kernel function to use.
+  initialize = function(){
+  },
+
+  #' @description
+  #' Fit the object to training data X and y.
+  #' @param X Training data (dataframe or matrix).
+  #' @param y Training data (vector).
+  #' @param ... Additional arguments passed to randomForest.
+  fit = function(X, y, ...){
+    library(randomForest)
+    df <- cbind(X, y)
+    self$fitted_model <- randomForest(X, y = as.factor(y))
+    invisible(self)
+  },
+
+  #' @description
+  #' Predict on X.
+  #' @param X X training or testing X.
+  predict = function(X){
+    y_hat <- predict(self$fitted_model, newdata = X)
+    as.logical(y_hat)
+  }
+))
+
+

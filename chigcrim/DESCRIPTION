@@ -24,4 +24,6 @@ Imports:
     readr,
     mgcv,
     doParallel,
-    spdep
+    spdep,
+    forcats,
+    foreach

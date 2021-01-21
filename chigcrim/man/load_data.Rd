@@ -8,11 +8,12 @@ load_data(
   year = NULL,
   strings_as_factors = TRUE,
   drop_location = TRUE,
-  na_omit = FALSE
+  na_omit = FALSE,
+  limit = NULL
 )
 }
 \arguments{
-\item{year}{integer in 2001:2021 specifying the desired year, or two integers 
+\item{year}{integer in 2001:2021 specifying the desired year, or two integers
 specifying endpoints to filter between.}
 
 \item{strings_as_factors}{Whether to convert `iucr`, `primary_type`,
@@ -22,11 +23,13 @@ specifying endpoints to filter between.}
 and longitude.}
 
 \item{na_omit}{Whether to omit observations with NA values.}
+
+\item{limit}{Limit set on how many rows of data to obtain.}
 }
 \value{
 tibble data frame of Chicago Crime data.
 }
 \description{
-Returns a data frame of Chicago Crime data from specified year or range of years, 
+Returns a data frame of Chicago Crime data from specified year or range of years,
 or returns entire dataset from 2001 to present if no years are specified.
 }

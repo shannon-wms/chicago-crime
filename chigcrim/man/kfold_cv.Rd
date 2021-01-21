@@ -24,16 +24,18 @@ kfold_cv(
 
 \item{error_funcs}{List of functions for calculating error.}
 
+\item{k}{Number of folds.}
+
 \item{n_reps}{Number of repeats.}
 
 \item{parallel}{Whether to compute in parallel.}
 
-\item{n_threads}{The number of parallel threads to use. If NULL, this is 
+\item{n_threads}{The number of parallel threads to use. If NULL, this is
 chosen to be the number of cores minus one.}
 }
 \value{
-List of length equal to that of `error_funcs` with each element 
-containing a vector of length `n_reps` corresponding to the mean error 
+List of length equal to that of `error_funcs` with each element
+containing a vector of length `n_reps` corresponding to the mean error
 averaged over `k` folds.
 }
 \description{

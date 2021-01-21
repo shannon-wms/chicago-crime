@@ -19,12 +19,29 @@ R6 class for the Poisson family of GAMs.
 \item{\code{region}}{Specifies the spatial region to use: must be one of "beat", "district",
 "ward" or "community".}
 
-\item{\code{include_nb}}{Whether to include a neighbours list for the discrete spatial 
+\item{\code{include_nb}}{Whether to include a neighbours list for the discrete spatial
 regions and then use a Markov random field smoother for fitting.}
 
 \item{\code{include_crimetype}}{Whether to include crime types as a predictor in the model.}
 
+\item{\code{filter_week}}{If using weeks, whether to filter out week 53, as it
+typically has fewer than 7 days and can lead to spurious results.}
+
 \item{\code{n_threads}}{Number of threads to use when fitting the GAM in parallel.}
+
+\item{\code{nbd_list}}{Neighbourhood list for the specified region.}
+
+\item{\code{count_train}}{Count data for the training dataset, grouped by the specified
+time period, region, and (optional) crime type.}
+
+\item{\code{count_test}}{Count data for the test dataset, grouped by the specified time
+period, region, and (optional) crime type.}
+
+\item{\code{gam_fitted}}{The GAM, fitted using package mgcv.}
+
+\item{\code{fit_summary}}{Summary of the fitted GAM.}
+
+\item{\code{predictions}}{Vector of predicted response values for the test dataset.}
 }
 \if{html}{\out{</div>}}
 }
@@ -47,10 +64,29 @@ Create new PoissonGAM object.
   time_period = "week",
   region = "community_area",
   include_nb = FALSE,
-  include_crimetype = FALSE
+  include_crimetype = FALSE,
+  filter_week = TRUE
 )}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{time_period}}{One of "week", "month" or "yday" specifying the time period
+over which counts are aggregated.}
+
+\item{\code{region}}{One of "beat" or "community_area", specifying the region over
+which counts are aggregated.}
+
+\item{\code{include_nb}}{Whether to include a neighbourhood list for the regions,
+and hence whether to use a Markov random field smoother for the region.}
+
+\item{\code{include_crimetype}}{Whether to include crime type as a predictor.}
+
+\item{\code{filter_week}}{Whether to filter out the 53rd week.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-fit"></a>}}
@@ -66,12 +102,13 @@ Function for fitting a GAM to the training dataset.
 \describe{
 \item{\code{df_train}}{The training dataset.}
 
-\item{\code{convert}}{Whether the column
-parameter selection methods in `gam`}
+\item{\code{convert}}{Whether the column `date` should be converted to instants
+or they are already present.}
 
-\item{\code{n_threads}}{The number of threads to use for parallel smoothing}
+\item{\code{n_threads}}{The number of threads to use for parallel smoothing
+parameter selection methods in `gam`.}
 
-\item{\code{...}}{Additional arguments to be passed to `gam`}
+\item{\code{...}}{Additional arguments to be passed to `gam`.}
 }
 \if{html}{\out{</div>}}
 }
@@ -82,9 +119,19 @@ parameter selection methods in `gam`}
 \subsection{Method \code{predict()}}{
 Prediction for a new dataset
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PoissonGAM$predict(df_test = NULL, convert = FALSE, ...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{PoissonGAM$predict(df_test = NULL, convert = FALSE)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{df_test}}{The training dataset.}
+
+\item{\code{convert}}{Whether the column `date` should be converted to instants
+or they are already present.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-clone"></a>}}

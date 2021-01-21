@@ -7,7 +7,7 @@
 convert_dates(df, date_col = "date", as_factors = TRUE, exclude = NULL)
 }
 \arguments{
-\item{df}{Data frame containing a column with date-time entries to extract 
+\item{df}{Data frame containing a column with date-time entries to extract
 instants from.}
 
 \item{date_col}{The name of the column with date-time entries, defaults to "date".}

@@ -185,24 +185,24 @@ squared_error_loss <- function(y_hat, y){
 }
 
 #' Poisson GAM Regression
-#' 
-#' @description 
+#'
+#' @description
 #' R6 class for the Poisson family of GAMs.
-#' 
+#'
 #' @field df_train The training dataset.
 #' @field df_test The test dataset.
 #' @field time_period Specifies the time period: must be one of "days", "weeks" or
 #' "months".
 #' @field region Specifies the spatial region to use: must be one of "beat", "district",
 #' "ward" or "community".
-#' @field include_nb Whether to include a neighbours list for the discrete spatial 
+#' @field include_nb Whether to include a neighbours list for the discrete spatial
 #' regions and then use a Markov random field smoother for fitting.
 #' @field include_crimetype Whether to include crime types as a predictor in the model.
-#' @field filter_week If using weeks, whether to filter out week 53, as it 
+#' @field filter_week If using weeks, whether to filter out week 53, as it
 #' typically has fewer than 7 days and can lead to spurious results.
 #' @field n_threads Number of threads to use when fitting the GAM in parallel.
 #' @field nbd_list Neighbourhood list for the specified region.
-#' @field count_train Count data for the training dataset, grouped by the specified 
+#' @field count_train Count data for the training dataset, grouped by the specified
 #' time period, region, and (optional) crime type.
 #' @field count_test Count data for the test dataset, grouped by the specified time
 #' period, region, and (optional) crime type.
@@ -225,18 +225,18 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   gam_fitted = "list",
   fit_summary = "list",
   predictions = "numeric",
-  
-  #' @description 
+
+  #' @description
   #' Create new PoissonGAM object.
   #' @param time_period One of "week", "month" or "yday" specifying the time period
   #' over which counts are aggregated.
-  #' @param region One of "beat" or "community_area", specifying the region over 
+  #' @param region One of "beat" or "community_area", specifying the region over
   #' which counts are aggregated.
-  #' @param include_nb Whether to include a neighbourhood list for the regions, 
+  #' @param include_nb Whether to include a neighbourhood list for the regions,
   #' and hence whether to use a Markov random field smoother for the region.
   #' @param include_crimetype Whether to include crime type as a predictor.
   #' @param filter_week Whether to filter out the 53rd week.
-  initialize = function(time_period = "week", region = "community_area", 
+  initialize = function(time_period = "week", region = "community_area",
                         include_nb = FALSE, include_crimetype = FALSE,
                         filter_week = TRUE) {
     self$time_period <- time_period
@@ -244,11 +244,11 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
     self$include_nb <- include_nb
     self$include_crimetype <- include_crimetype
     self$filter_week <- filter_week
-    
+
     private$check_params()
     if (include_nb) self$nbd_list <- private$get_nbd_list()
   },
-  
+
   #' @description
   #' Function for fitting a GAM to the training dataset.
   #' @param df_train The training dataset.
@@ -279,12 +279,12 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
                            control = ctrl, ...)
     self$fit_summary <- summary(self$gam_fitted)
   },
-  #' @description 
+  #' @description
   #' Prediction for a new dataset
   #' @param df_test The training dataset.
   #' @param convert Whether the column `date` should be converted to instants
   #' or they are already present.
-  predict = function(df_test = NULL, convert = FALSE, ...) {
+  predict = function(df_test = NULL, convert = FALSE) {
     if (!is.null(df_test)) {
       # Convert date column to instants if necessary
       if (convert) df_test %<>% convert_dates()
@@ -293,7 +293,7 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
       } else self$df_test <- df_test
       # Create count data
       self$count_test <- private$get_count_data(self$df_test)
-      self$predictions <- predict(self$gam_fitted, newdata = self$count_test, 
+      self$predictions <- predict(self$gam_fitted, newdata = self$count_test,
                              type = "response")
     } else { # No test data, predict on training data
       self$predictions <- predict(self$gam_fitted, type = "response")
@@ -312,7 +312,7 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   get_count_data = function(df) {
     # Crime type data included
     if (self$include_crimetype) {
-      count_data <- df %>% 
+      count_data <- df %>%
         mutate(!!eval(self$region) := factor(get(self$region))) %>%
         count(get(self$region), get(self$time_period), fbi_code) %>%
         rename(!!eval(self$time_period) := `get(self$time_period)`,
@@ -321,7 +321,7 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
       # Ensure FBI code is sorted alphabetically
       count_data$fbi_code %<>% fct_relevel(sort)
     } else { # Crime type data not included
-      count_data <- df %>% 
+      count_data <- df %>%
         mutate(!!eval(self$region) := factor(get(self$region))) %>%
         count(get(self$region), get(self$time_period)) %>%
         rename(!!eval(self$time_period) := `get(self$time_period)`,
