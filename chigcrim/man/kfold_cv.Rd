@@ -24,6 +24,8 @@ kfold_cv(
 
 \item{error_funcs}{List of functions for calculating error.}
 
+\item{k}{Number of folds.}
+
 \item{n_reps}{Number of repeats.}
 
 \item{parallel}{Whether to compute in parallel.}

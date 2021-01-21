@@ -2,6 +2,8 @@
 
 export(KernelRidge)
 export(LogisticRegression)
+export(RandomForest)
+export(SupportVectorMachine)
 export(classification_accuracy)
 export(classification_sensitivity)
 export(classification_specificity)

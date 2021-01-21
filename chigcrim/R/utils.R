@@ -216,6 +216,7 @@ cv_R6_k_fold <- function(object, X, y, error, k){
 #' @param X Data matrix.
 #' @param y Response vector.
 #' @param error_funcs List of functions for calculating error.
+#' @param k Number of folds.
 #' @param n_reps Number of repeats.
 #' @param parallel Whether to compute in parallel.
 #' @param n_threads The number of parallel threads to use. If NULL, this is
