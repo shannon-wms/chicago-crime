@@ -24,11 +24,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libcurl4-openssl-dev
-          su
-          wget https://github.com/curl/curl/releases/download/curl-7_55_0/curl-7.55.0.tar.gz
-          ./configure
-          make 
-          make install
       - name: Install dependencies
         run: |
           install.packages(c("remotes", "rcmdcheck"))
