@@ -26,4 +26,5 @@ Imports:
     doParallel,
     spdep,
     forcats,
-    foreach
+    foreach,
+    e1071
