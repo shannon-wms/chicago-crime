@@ -23,7 +23,7 @@ jobs:
       - name: Install Ubuntu packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev
+          sudo apt-get install -y libcurl4-openssl-dev libgdal-dev libproj-dev libgeos-dev libudunits2-dev libnode-dev libcairo2-dev libnetcdf-dev
       - name: Install dependencies
         run: |
           install.packages(c("remotes", "rcmdcheck"))
