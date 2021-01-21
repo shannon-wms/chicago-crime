@@ -1,7 +1,7 @@
 # Script contains useful general purpose utility functions
 #' @importFrom data.table as.data.table
 #' @importFrom mltools one_hot
-#' @import RSocrata
+#' @importFrom RSocrata read.socrata
 #' @import dplyr
 #' @import magrittr
 #' @import readr
@@ -49,10 +49,11 @@ parse_X <- function(X){
 #' @param drop_location Whether to drop location as it duplicates data in latitude
 #' and longitude.
 #' @param na_omit Whether to omit observations with NA values.
+#' @param limit Limit set on how many rows of data to obtain.
 #' @return tibble data frame of Chicago Crime data.
 #' @export
 load_data <- function(year = NULL, strings_as_factors = TRUE,
-                      drop_location = TRUE, na_omit = FALSE) {
+                      drop_location = TRUE, na_omit = FALSE, limit = NULL) {
 
   # Only accept NULL or valid years
   if (!is.null(year)) {
@@ -73,6 +74,15 @@ load_data <- function(year = NULL, strings_as_factors = TRUE,
   } else { # Single year chosen
     year <- as.character(year)
     full_url <- paste0(base_url, "?year=", year)
+  }
+  if (!is.null(limit)) {
+    if(is.na(as.numeric(limit))) return("Limit must be numeric.")
+    else { # Convert limit to a character integer
+      limit %<>% as.integer() %>% as.character()
+      # Add limit query to URL
+      full_url <- paste0(full_url, ifelse(is.null(year), "?$", "&$"), 
+                            "limit=", limit)
+    }
   }
   # Pull the data
   df <- read.socrata(full_url, app_token = "avsRhaZaZTqeJOGhBuFJieRzJ") %>% tibble()
