@@ -284,7 +284,7 @@ It takes `gam_train` as the dataset, which is automatically converted to count d
 
 ```{r}
 pg <- PoissonGAM$new(time_period = "week", region = "community_area",
-                     include_nb = FALSE, include_crimetype = TRUE, 
+                     crime_type = "fbi_code", include_nb = FALSE, 
                      filter_week = TRUE)
 # Fit using gam_train as the dataset 
 pg$fit(gam_train, n_threads = 7)
@@ -297,6 +297,6 @@ pg$predictions
 pg1 <- pg
 pg1$gam_fitted
 # Prediction on test dataset instead - doesn't currently work
-pg1$predict(gam_test)
+pg$predict(gam_test)
 pg1$predictions
 ```
