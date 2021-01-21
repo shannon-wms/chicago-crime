@@ -295,13 +295,13 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
     self$count_train <- private$get_count_data(self$df_train)
     ctrl <- gam.control(nthreads = n_threads)
     # Construct formula for GAM
-    f <- formula(n ~ s(as.numeric(get(self$time_period)), bs = "cc"))
+    f <- formula(paste("n ~ s(as.numeric(", self$time_period, "), bs = 'cc')"))
     # Add region and neighbourhood list if required
     if (self$include_nb) {
-      f %<>% update(~ . + s(get(self$region), bs = "mrf", xt = list(nb = self$nbd_list)))
-    } else f %<>% update(~ . + get(self$region))
+      f <- formula(paste(deparse(f), "+", "s(", self$region, ", bs = 'mrf', xt = list(nb =", self$nbd_list, "))"))
+    } else f <- formula(paste(deparse(f), "+", self$region))
     # Add crime type to formula
-    if (self$include_crimetype) f %<>% update(~ . + fbi_code)
+    if (self$include_crimetype) f <- formula(paste(deparse(f), "+", fbi_code))
     # Fit GAM using mgcv
     self$gam_fitted <- gam(f, data = self$count_train, family = "poisson",
                            control = ctrl, ...)
@@ -343,7 +343,7 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
     if (self$include_crimetype) {
       count_data <- df %>%
         mutate(!!eval(self$region) := factor(get(self$region))) %>%
-        count(get(self$region), get(self$time_period), fbi_code) %>%
+        count(get(self$region), get(self$time_period), year, fbi_code) %>%
         rename(!!eval(self$time_period) := `get(self$time_period)`,
                !!eval(self$region) := `get(self$region)`) %>%
         arrange(eval(self$time_period), eval(self$region), fbi_code)
@@ -352,7 +352,7 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
     } else { # Crime type data not included
       count_data <- df %>%
         mutate(!!eval(self$region) := factor(get(self$region))) %>%
-        count(get(self$region), get(self$time_period)) %>%
+        count(get(self$region), get(self$time_period), year) %>%
         rename(!!eval(self$time_period) := `get(self$time_period)`,
                !!eval(self$region) := `get(self$region)`) %>%
         arrange(eval(self$time_period), eval(self$region))
