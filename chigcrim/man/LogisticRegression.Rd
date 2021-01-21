@@ -26,9 +26,9 @@ lr$predict(X)
 
 \item{\code{theta}}{The fitted parameters.}
 
-\item{\code{control}}{list passed to optim control.}
+\item{\code{control}}{List of control parameters to be passed to optim control.}
 
-\item{\code{round_y_hat}}{boolean, whether to round predictions to 0 and 1.}
+\item{\code{round_y_hat}}{Logical, whether to round predicted values to 0 and 1.}
 }
 \if{html}{\out{</div>}}
 }

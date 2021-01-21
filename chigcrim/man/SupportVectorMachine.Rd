@@ -2,13 +2,8 @@
 % Please edit documentation in R/classification.R
 \name{SupportVectorMachine}
 \alias{SupportVectorMachine}
-\title{Support vector machine wrapper
-R6 class wrapper for support vector machine implementation from e1071 package.}
+\title{Support vector machine wrapper}
 \description{
-Support vector machine wrapper
-R6 class wrapper for support vector machine implementation from e1071 package.
-
-Support vector machine wrapper
 R6 class wrapper for support vector machine implementation from e1071 package.
 }
 \section{Public fields}{
@@ -16,7 +11,9 @@ R6 class wrapper for support vector machine implementation from e1071 package.
 \describe{
 \item{\code{kernel}}{Kernel function to use (as in svm documentation)}
 
-\item{\code{fitted_model}}{svm object.}
+\item{\code{fitted_model}}{`svm` object representing the fitted model.}
+
+\item{\code{predictions}}{Predicted values of given test dataset.}
 }
 \if{html}{\out{</div>}}
 }
@@ -62,7 +59,7 @@ Fit the object to training data X and y.
 
 \item{\code{y}}{Training data (vector).}
 
-\item{\code{...}}{Additional arguments passed to svm..}
+\item{\code{...}}{Additional arguments to be passed to `svm`.}
 }
 \if{html}{\out{</div>}}
 }

@@ -14,7 +14,9 @@ R6 class wrapper for random forest. Uses randomForest package.
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{fitted_model}}{fitted randomForest object.}
+\item{\code{fitted_model}}{Fitted randomForest object.}
+
+\item{\code{predictions}}{Predicted response values for test dataset.}
 }
 \if{html}{\out{</div>}}
 }
@@ -36,13 +38,6 @@ Create new randomForest object.
 \if{html}{\out{<div class="r">}}\preformatted{RandomForest$new()}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{kernel}}{Kernel function to use.}
-}
-\if{html}{\out{</div>}}
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-fit"></a>}}
@@ -56,11 +51,11 @@ Fit the object to training data X and y.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{X}}{Training data (dataframe or matrix).}
+\item{\code{X}}{Training dataset (as a dataframe or matrix).}
 
-\item{\code{y}}{Training data (vector).}
+\item{\code{y}}{Training dataset (as vector).}
 
-\item{\code{...}}{Additional arguments passed to randomForest.}
+\item{\code{...}}{Additional arguments to bepassed to randomForest.}
 }
 \if{html}{\out{</div>}}
 }
@@ -77,7 +72,7 @@ Predict on X.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{X}}{X training or testing X.}
+\item{\code{X}}{Training or test data matrix.}
 }
 \if{html}{\out{</div>}}
 }
