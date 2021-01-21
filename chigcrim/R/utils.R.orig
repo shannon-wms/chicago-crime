@@ -13,6 +13,7 @@ NULL
 
 #' Parse matrix into useful format for ML algorithms
 #'
+#' @description
 #' If a matrix is passed, function checks that it is not a character matrix.
 #' If a data frame is passed, the function similarly checks the types, and
 #' one hot encodes factors.
@@ -81,7 +82,7 @@ load_data <- function(year = NULL, strings_as_factors = TRUE,
     else { # Convert limit to a character integer
       limit %<>% as.integer() %>% as.character()
       # Add limit query to URL
-      full_url <- paste0(full_url, ifelse(is.null(year), "?$", "&$"),
+      full_url <- paste0(full_url, ifelse(is.null(year), "?$", "&$"), 
                             "limit=", limit)
     }
   }
@@ -147,15 +148,22 @@ yday_float = function(timestamp){
 
 
 #' Indexed cross-validation for R6 class
-#'
-#' @description
+#' 
+#' @description 
 #' Computes cross-validation error using specified indexes (rows) of the data set
 #' as the test set.
 #' @param object R6 class with fit and predict methods.
 #' @param X Data matrix
 #' @param y Vector of observations.
 #' @param error Function to assess error.
+<<<<<<< HEAD
+#' @param idxs Vector of indices corresponding with test data.
+#' @export
+||||||| d24db14
+#' @param idxs Vector of indices corresponding with test data.
+=======
 #' @param index Vector of indexes corresponding to test data.
+>>>>>>> main
 #'
 #' @return Test error.
 #' @export
@@ -207,7 +215,13 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FAL
       errors <- list()
       folds <- split(sample(1:n), 1:k)
       for (j in 1:k) {
-        errors[[j]] <- mapply(cv_eval, error = error_funcs,
+<<<<<<< HEAD
+        errors[[j]] <- mapply(cv_R6_idxs, error = error_funcs,
+||||||| d24db14
+        errors[[j]] <- mapply(cv_R6_idxs, error = error_funcs, 
+=======
+        errors[[j]] <- mapply(cv_eval, error = error_funcs, 
+>>>>>>> main
                             MoreArgs = list(object = object, X = X, y = y,
                                             index = folds[[j]]))
       }
@@ -220,7 +234,13 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FAL
       errors <- list()
       folds <- split(sample(1:n), 1:k)
       for (j in 1:k) {
-        errors[[j]] <- mapply(cv_eval, error = error_funcs,
+<<<<<<< HEAD
+        errors[[j]] <- mapply(cv_R6_idxs, error = error_funcs,
+||||||| d24db14
+        errors[[j]] <- mapply(cv_R6_idxs, error = error_funcs, 
+=======
+        errors[[j]] <- mapply(cv_eval, error = error_funcs, 
+>>>>>>> main
                               MoreArgs = list(object = object, X = X, y = y,
                                               index = folds[[j]]))
       }
@@ -241,10 +261,18 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FAL
 }
 
 #' Convert dates to other formats in dataframe
+<<<<<<< HEAD
 #'
-#' @param df Data frame containing a column with date-time entries to extract
+#' @param df Data frame containing `date` column to extract instants from.
+||||||| d24db14
+#' 
+#' @param df Data frame containing `date` column to extract instants from.
+=======
+#' 
+#' @param df Data frame containing a column with date-time entries to extract 
 #' instants from.
 #' @param date_col The name of the column with date-time entries, defaults to "date".
+>>>>>>> main
 #' @param as_factors Whether to convert `month`, `week`, `day` and `hour`
 #' into factors.
 #' @param exclude Specifies which instants to exclude from data frame returned.
@@ -253,20 +281,52 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FAL
 convert_dates <- function(df, date_col = "date", as_factors = TRUE, exclude = NULL) {
   if (as_factors) { # Convert columns to factors
     df %<>%
+<<<<<<< HEAD
+      mutate(month = factor(month(date)),
+             week = factor(week(date)),
+             day = factor(day(date)),
+             hour = factor(hour(date)),
+             yday = yday(date),
+             date = date(date))
+||||||| d24db14
+      mutate(month = factor(month(date)),
+             week = factor(week(date)),
+             day = factor(day(date)),
+             hour = factor(hour(date)),
+             yday = yday(date),
+             date = date(date)) 
+=======
       mutate(month = factor(month(get(date_col))),
              week = factor(week(get(date_col))),
              day = factor(day(get(date_col))),
              hour = factor(hour(get(date_col))),
              yday = yday(get(date_col)),
-             date = date(get(date_col)))
+             date = date(get(date_col))) 
+>>>>>>> main
   } else { # No factors
     df %<>%
+<<<<<<< HEAD
+      mutate(month = month(date),
+             week = week(date),
+             day = day(date),
+             hour = hour(date),
+             yday = yday(date),
+             date = date(date))
+||||||| d24db14
+      mutate(month = month(date),
+             week = week(date),
+             day = day(date),
+             hour = hour(date),
+             yday = yday(date),
+             date = date(date)) 
+=======
       mutate(month = month(get(date_col)),
              week = week(get(date_col)),
              day = day(get(date_col)),
              hour = hour(get(date_col)),
              yday = yday(get(date_col)),
-             date = date(get(date_col)))
+             date = date(get(date_col))) 
+>>>>>>> main
   }
   # Remove specified rows to exclude
   if (!is.null(exclude)) {

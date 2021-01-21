@@ -25,4 +25,5 @@ Imports:
     mgcv,
     doParallel,
     spdep,
+    forcats,
     foreach

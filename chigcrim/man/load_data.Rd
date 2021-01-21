@@ -8,7 +8,8 @@ load_data(
   year = NULL,
   strings_as_factors = TRUE,
   drop_location = TRUE,
-  na_omit = FALSE
+  na_omit = FALSE,
+  limit = NULL
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ specifying endpoints to filter between.}
 and longitude.}
 
 \item{na_omit}{Whether to omit observations with NA values.}
+
+\item{limit}{Limit set on how many rows of data to obtain.}
 }
 \value{
 tibble data frame of Chicago Crime data.

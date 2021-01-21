@@ -10,38 +10,45 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = paste0(rprojroot::find_rstudio_root_file(), "/chigcrim"))
 ```
 
-# Imports
+## Imports
 ```{r message=FALSE}
 library(tidyverse)
-library(data.table)
 library(lubridate)
-library(caret)
-library(e1071)
 library(randomForest)
-
 devtools::load_all("../chigcrim/")
 
 set.seed(1)
 ```
 
 
-# Introduction
-Predicting if a suspect is arrested is a binary classification problem. To assess performance, three metrics will be used, the overall accuracy, the sensitivity and the specificity. These are defined as follows:
+## Introduction
+In this section, the binary classification task of predicting if a suspect is arrested is considered. Three models will be investigated, logistic regression, support vector machines and random forest classifiers.
+
+## Assessing performance
+To assess performance, three metrics will be used, the overall accuracy, the sensitivity and the specificity. These are defined as follows:
 
 - Overall accuracy: The proportion of correct predictions.
 
-- Specificity: Proportion of negative observations correctly predicted.
-
 - Sensitivity: Proportion of positive observations correctly predicted.
 
-Here, two classifiers are considered, logistic regression and a support vector machine classifier. Note that as logistic regression is a probabilistic classifier, the results are rounded to yield predictions that can be assessed with the metrics above to facilitate the comparison with the support vector machine results.
+- Specificity: Proportion of negative observations correctly predicted.
 
-# Feature selection
-Due to computational limitations, only the 2019 data will be considered. Below, the feature selection choices are outlined:
+Note that as logistic regression is a probabilistic classifier, the results are rounded to yield predictions that can be assessed with the metrics above to facilitate the comparison with the support vector machine results.
+
+```{r}
+metrics <- list(accuracy = classification_accuracy,
+                sensitivity = classification_sensitivity,
+                specificity = classification_specificity)
+```
+
+For each classifier, we use repeated k-fold cross validation. Specifically, 5-fold cross validation is repeated three times (run in parallel), and the metrics are averaged across the folds.
+
+## Feature selection
+Due to computational limitations, only the 2019 data will be considered. Below, the feature selection choices are outlined. These decisions involved incorporating information from the exploratory data analysis (EDA), as well as considering what is computationally feasible.
 
 - Encode the date as the day in the year (1-365).
 
-- Encode time of day as a float 0-24 (this looks OK from a plot of proportion arrested over time).
+- Encode time of day as a float 0-24 (this looks good in the EDA).
 
 - Drop `year` as these are all 2019.
 
@@ -60,6 +67,7 @@ Due to computational limitations, only the 2019 data will be considered. Below, 
 - NAs will be dropped (see EDA).
 
 - Particularly rare factors will be grouped into a variable other (see `?otherise`).
+
 
 
 ```{r}
@@ -87,8 +95,8 @@ df <- df %>%
 head(df)
 ```
 
-## Logistic Regression
-We will first consider a logistic regression classifier. The factor variables are one-hot-encoded internally. Here, we use repeated k-fold cross validation. Specifically, 5-fold cross validation is repeated three times, and the metrics are averaged across the folds.
+### Logistic Regression
+We will first consider a logistic regression classifier. This is a linear classifier. It calls the function `optim()` internally to minimize the cross-entropy/log-loss function using gradient based optimisation methods (here BFGS).
 ```{r time_it=TRUE}
 X <- df %>% select(-arrest)
 y <- df$arrest
@@ -97,22 +105,18 @@ lr <- LogisticRegression$new(solver = "BFGS",
                              control = list(maxit=1000, reltol = 1e-4),
                              round_y_hat = TRUE)
 
-metrics <- list(accuracy = classification_accuracy,
-                sensitivity = classification_sensitivity,
-                specificity = classification_specificity)
-
-lr_results <- kfold_cv(lr, X, y, metrics,
-                       k = 5, n_reps = 3, parallel = TRUE, n_threads = 3)
+lr_results <- kfold_cv(lr, X, y, metrics, k = 5, n_reps = 3,
+                       parallel = TRUE, n_threads = 3)
 
 as_tibble(lr_results)
 
 ```
 
-## Support Vector Machine
-As the support vector machine allows use of a kernel function, it should be able to capture non-linear relationships in space (given an appropriate kernel). Here, a radial basis function kernel is used. Unfortunately, support vector machines do not scale well to large data sets, so here we will only use 10000 rows.
+### Support Vector Machine
+As the support vector machine allows use of a kernel function, it should be able to capture non-linear relationships in the original feature space (given an appropriate kernel). Here, a radial basis function kernel is used. This implementation is a wrapper of the SVM package `e1071`. Unfortunately, support vector machines do not scale well to large data sets, so here we will only use 20000 rows.
 
 ```{r}
-idxs <- sample(1:nrow(df), 10000)
+idxs <- sample(1:nrow(df), 20000)
 X <- X[idxs, ]
 y <- y[idxs]
 
@@ -122,65 +126,35 @@ svm_results <- kfold_cv(svm, X, y, metrics, 5, 3, parallel = TRUE, n_threads = 5
 as_tibble(svm_results)
 ```
 
-## Random Forest
-The random forest trains multiple decision trees using a subset of features to create each tree. Decision trees are an ordered set of rules defined on the feature values that attempt to split the data into classes. They have a tendency to overfit, the random forest solves this by growing multiple trees on different features within the dataset. In the classification case a prediction is made by predicting from each decision tree separately and finding the most common predicted class. They are a black-box method but can be useful for prediction. We train our random forest using the `randomForest` package. Due to the high computational cost involved in fitting random forest models we train it on a subset of the data taking 10000 rows as we did for the SVM.
-
-
+### Random Forest
+The random forest trains multiple decision trees using a subset of features to create each tree. Decision trees are an ordered set of rules defined on the feature values that attempt to split the data into classes. They have a tendency to overfit, the random forest solves this by growing multiple trees on different features within the dataset. In the classification case a prediction is made by predicting from each decision tree separately and finding the most common predicted class. They are a black-box method but can be useful for prediction. The R6 class used here uses the `randomForest` package internally. Due to the high computational cost involved in fitting random forest models we again use a subset of the data (20000 rows) as we did for the SVM.
 
 ```{r}
-
-X <- select(X, - "community_area") 
-
+X <- select(X, - "community_area")  # Can't handle feature with so many levels.
 rf <- RandomForest$new()
 rf_results <- kfold_cv(rf, X, y, metrics, 5, 3, parallel = TRUE, n_threads = 3)
+
 as_tibble(rf_results)
 ```
 
-
-```{r}
-# randomForest can't take categorical variables with more than 53 levels, as spatial information should be captured
-# by long/lat we remove community area from the data set
-rf_train <- select(train, - "community_area") 
-rf <-randomForest(select(rf_train, -"arrest"), y = as.factor(rf_train$arrest))
-y_hat <- predict(rf, newdata = test)
-rf_results <- confusionMatrix(y_hat, as.factor(test$arrest))
-```
-
 ## Comparison of models
-The results for the models are shown below:
+The models all performed very similarly. Unsurprisingly, the support vector machine and the random forest classifier performed better, due to their ability to utilise non-linear relationships. It is worth noting that this difference is surprisingly small, although this may be due to the fact that logistic regression could be trained using more data. Alternatively, it could suggest that encoding the community areas as factors was sufficient to capture much of the spatial aspect of the crimes in logistic regression.
 
-**Logistic regression**:
+Logistic regression had higher sensitivity than the support vector machine, so could be a preferable option if false negatives are particularly detrimental, although it is worth noting that both support vector machines and logistic regression can be adjusted to reflect unbalanced costs associated with incorrect predictions.
 
-- Overall accuracy: `r lr_results$overall["Accuracy"]`
-
-- Sensitivity: `r lr_results$byClass["Sensitivity"]`
-
-- Specificity: `r lr_results$byClass["Specificity"]`
-
-**Support Vector Machine**
-
-- Overall accuracy: `r svm_results$overall["Accuracy"]`
-
-- Sensitivity: `r svm_results$byClass["Sensitivity"]`
-
-- Specificity: `r svm_results$byClass["Specificity"]`
-
-**Random Forest**
-
-- Overall accuracy: `r rf_results$overall["Accuracy"]`
-
-- Sensitivity: `r rf_results$byClass["Sensitivity"]`
-
-- Specificity: `r rf_results$byClass["Specificity"]`
-
-Surprisingly, despite the ability of support vector machines to utilise non-linear relationships (in the original feature space), it did not perform better than logistic regression (and was much more computationally costly to train). The support vector machine had higher sensitivity. This reflects the fact that the logistic regression classifier gave more balanced predictions between the classes, inevitably leading to more false negatives.
-
-Perhaps these results suggest that much of the spatial relationship in the data could be captured using the `community_area` and `location_description` factor variables, rather than the specific x and y coordinates of the crime. Hence, the logistic regression classifier could perform well, despite the data being spatial, and likely infringing on the independent and identically distributed assumption of logistic regression. Alternatively, perhaps the performance of the support vector machine was hindered by the fact it was only trained on a small proportion of the data set (due to computational limitations), compared to logistic regression.
-
-On the other hand the random forest managed to out perform both the other models without using `community area` as a feature. It is likely that the random forest could be improved by training on a larger subset of the data and optimising the hyperparameters. The downside of this is that as a black-box method is does not provide any inference as to how the features are used within the model. We are at least able to look at how many times each feature was chosen as a splitting point in all of the trees providing some inference as to the importance of each of the features. 
+Being an ensemble model, the random forest unsurprisingly performed the best based on all three metrics. It is likely that the random forest could be improved by training on a larger subset of the data and optimising the hyperparameters. The downside of this is that as a black-box method is does not provide any inference as to how the features are used within the model. We are at least able to look at how many times each feature was chosen as a splitting point in all of the trees providing some inference as to the importance of each of the features. 
 
 ```{r}
-importance(rf)
+rf$fit(X, y)
+
+imp <- importance(rf$fitted_model)
+imp <- tibble(feature = row.names(imp), mean_decrease_gini = as.vector(imp))
+
+imp %>%
+  arrange(desc(mean_decrease_gini)) %>%
+  mutate(feature = factor(feature, levels = .$feature)) %>%
+  ggplot(aes(x = feature, y = mean_decrease_gini)) +
+  geom_col()
 ```
 
-We see the most important feature was `fbi_code`, this is somewhat expected as it determines what type of crime occcured and this would intuitively have a large affect in whether someone was arrested. None of the models achieve an accuracy of more than 90%. This could be due to the absence of key demographic data which may provide more information as to whether someone will be arrested.
+We see the most important feature was `fbi_code`, this is somewhat expected as it determines what type of crime occurred and this would intuitively have a large affect in whether someone was arrested. None of the models achieve an accuracy of more than 90%. The availability of more data, such as the demographic background of the suspect, would likely allow for more accurate predictions.

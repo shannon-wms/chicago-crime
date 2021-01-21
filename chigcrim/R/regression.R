@@ -1,7 +1,8 @@
 # Script contains functions and classes for regression algorithms
 #' @importFrom R6 R6Class
 #' @import mgcv
-#' @import spdep
+#' @importFrom spdep poly2nb
+#' @importFrom forcats fct_relevel
 NULL
 
 #' Kernel Ridge Regression
@@ -69,7 +70,6 @@ KernelRidge <- R6Class("KernelRidge", public = list(
     private$check_params()
     self$kernel_function <- self$get_kernel_function()
   },
-
 
 
   #' @description
@@ -185,20 +185,31 @@ squared_error_loss <- function(y_hat, y){
 }
 
 #' Poisson GAM Regression
-#' 
-#' @description 
+#'
+#' @description
 #' R6 class for the Poisson family of GAMs.
-#' 
+#'
 #' @field df_train The training dataset.
 #' @field df_test The test dataset.
 #' @field time_period Specifies the time period: must be one of "days", "weeks" or
 #' "months".
 #' @field region Specifies the spatial region to use: must be one of "beat", "district",
 #' "ward" or "community".
-#' @field include_nb Whether to include a neighbours list for the discrete spatial 
+#' @field include_nb Whether to include a neighbours list for the discrete spatial
 #' regions and then use a Markov random field smoother for fitting.
 #' @field include_crimetype Whether to include crime types as a predictor in the model.
+#' @field filter_week If using weeks, whether to filter out week 53, as it
+#' typically has fewer than 7 days and can lead to spurious results.
 #' @field n_threads Number of threads to use when fitting the GAM in parallel.
+#' @field nbd_list Neighbourhood list for the specified region.
+#' @field count_train Count data for the training dataset, grouped by the specified
+#' time period, region, and (optional) crime type.
+#' @field count_test Count data for the test dataset, grouped by the specified time
+#' period, region, and (optional) crime type.
+#' @field gam_fitted The GAM, fitted using package mgcv.
+#' @field fit_summary Summary of the fitted GAM.
+#' @field predictions Vector of predicted response values for the test dataset.
+#' @export
 PoissonGAM <- R6Class("PoissonGAM", public = list(
   df_train = "data.frame",
   df_test = "data.frame",
@@ -206,54 +217,87 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   region = "character",
   include_nb = "logical",
   include_crimetype = "logical",
+  filter_week = "logical",
   n_threads = "integer",
   nbd_list = "list",
   count_train = "data.frame",
   count_test = "data.frame",
   gam_fitted = "list",
+  fit_summary = "list",
   predictions = "numeric",
-  
-  #' @description 
+
+  #' @description
   #' Create new PoissonGAM object.
-  initialize = function(time_period = "week", region = "community_area", 
-                        include_nb = FALSE, include_crimetype = FALSE) {
+  #' @param time_period One of "week", "month" or "yday" specifying the time period
+  #' over which counts are aggregated.
+  #' @param region One of "beat" or "community_area", specifying the region over
+  #' which counts are aggregated.
+  #' @param include_nb Whether to include a neighbourhood list for the regions,
+  #' and hence whether to use a Markov random field smoother for the region.
+  #' @param include_crimetype Whether to include crime type as a predictor.
+  #' @param filter_week Whether to filter out the 53rd week.
+  initialize = function(time_period = "week", region = "community_area",
+                        include_nb = FALSE, include_crimetype = FALSE,
+                        filter_week = TRUE) {
     self$time_period <- time_period
     self$region <- region
     self$include_nb <- include_nb
     self$include_crimetype <- include_crimetype
-    
+    self$filter_week <- filter_week
+
     private$check_params()
-    if (include_nb) self$nbd_list <- private$get_nbd_list(region)
+    if (include_nb) self$nbd_list <- private$get_nbd_list()
   },
-  
+
   #' @description
   #' Function for fitting a GAM to the training dataset.
   #' @param df_train The training dataset.
+  #' @param convert Whether the column `date` should be converted to instants
+  #' or they are already present.
   #' @param n_threads The number of threads to use for parallel smoothing
-  #' parameter selection methods in `gam`
-  #' @param ... Additional arguments to be passed to `gam`
-  fit = function(df_train, n_threads = 1, ...) {
-    self$count_train <- count_data(df_train)
+  #' parameter selection methods in `gam`.
+  #' @param ... Additional arguments to be passed to `gam`.
+  fit = function(df_train, convert = FALSE, n_threads = 1, ...) {
+    # Convert date column to instants if necessary
+    if (convert) df_train %<>% convert_dates()
+    if (self$filter_week && self$time_period == "week") {
+      self$df_train <- df_train %>% filter(as.integer(week) < 53)
+    } else self$df_train <- df_train
+    # Create count data
+    self$count_train <- private$get_count_data(self$df_train)
     ctrl <- gam.control(nthreads = n_threads)
     # Construct formula for GAM
     f <- formula(n ~ s(as.numeric(get(self$time_period)), bs = "cc"))
+    # Add region and neighbourhood list if required
     if (self$include_nb) {
       f %<>% update(~ . + s(get(self$region), bs = "mrf", xt = list(nb = self$nbd_list)))
     } else f %<>% update(~ . + get(self$region))
     # Add crime type to formula
     if (self$include_crimetype) f %<>% update(~ . + fbi_code)
-    # Fit GAM
+    # Fit GAM using mgcv
     self$gam_fitted <- gam(f, data = self$count_train, family = "poisson",
                            control = ctrl, ...)
+    self$fit_summary <- summary(self$gam_fitted)
   },
-  #' @description 
-  #' Function for predicting new dataset 
-  predict = function(df_test = NULL, ...) {
+  #' @description
+  #' Prediction for a new dataset
+  #' @param df_test The training dataset.
+  #' @param convert Whether the column `date` should be converted to instants
+  #' or they are already present.
+  predict = function(df_test = NULL, convert = FALSE) {
     if (!is.null(df_test)) {
-      self$count_test <- count_data(df_test)
-      gam_predict <- predict(self$gam_fitted, newdata = self$count_test)
-    } else gam_predict <- predict(self$gam_fitted)
-    self$predictions <- gam_predict
+      # Convert date column to instants if necessary
+      if (convert) df_test %<>% convert_dates()
+      if (self$filter_week && self$time_period == "week") {
+        self$df_test <- df_test %>% filter(as.integer(week) < 53)
+      } else self$df_test <- df_test
+      # Create count data
+      self$count_test <- private$get_count_data(self$df_test)
+      self$predictions <- predict(self$gam_fitted, newdata = self$count_test,
+                             type = "response")
+    } else { # No test data, predict on training data
+      self$predictions <- predict(self$gam_fitted, type = "response")
+    }
   }
 ), private = list(
   # Check parameters are defined properly
@@ -268,32 +312,33 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   get_count_data = function(df) {
     # Crime type data included
     if (self$include_crimetype) {
-      # Ensure FBI code is sorted alphabetically
-      df$fbi_code %<>% forcats::fct_relevel(sort)
-      count_data <- df %>% 
+      count_data <- df %>%
         mutate(!!eval(self$region) := factor(get(self$region))) %>%
         count(get(self$region), get(self$time_period), fbi_code) %>%
         rename(!!eval(self$time_period) := `get(self$time_period)`,
                !!eval(self$region) := `get(self$region)`) %>%
         arrange(eval(self$time_period), eval(self$region), fbi_code)
+      # Ensure FBI code is sorted alphabetically
+      count_data$fbi_code %<>% fct_relevel(sort)
     } else { # Crime type data not included
-      count_data <- df %>% 
+      count_data <- df %>%
         mutate(!!eval(self$region) := factor(get(self$region))) %>%
         count(get(self$region), get(self$time_period)) %>%
         rename(!!eval(self$time_period) := `get(self$time_period)`,
                !!eval(self$region) := `get(self$region)`) %>%
         arrange(eval(self$time_period), eval(self$region))
     }
+    return(count_data)
   },
   # Construct a neighbourhood list for beats or community areas
   get_nbd_list = function() {
-    if (self$region == "community") {
-      bounds <- data(beat_bounds)
-      nbd_list <- spdep::poly2nb(bounds, row.names = bounds$beat)
+    if (self$region == "beat") {
+      data("beat_bounds")
+      nbd_list <- poly2nb(beat_bounds, row.names = beat_bounds$beat)
     }
     else {
-      bounds <- data(community_bounds)
-      nbd_list <- spdep::poly2nb(bounds, row.names = bounds$community)
+      data("community_bounds")
+      nbd_list <- poly2nb(community_bounds, row.names = community_bounds$community)
     }
     # Name the rows in the list
     names(nbd_list) <- attr(nbd_list, "region.id")
