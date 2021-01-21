@@ -101,41 +101,45 @@ metrics <- list(accuracy = classification_accuracy,
                 sensitivity = classification_sensitivity,
                 specificity = classification_specificity)
 
-#REMOVE THIS
-X <- X[1:1000, ]
-y <- y[1:1000]
-
 lr_results <- kfold_cv(lr, X, y, metrics,
                        k = 5, n_reps = 3, parallel = TRUE, n_threads = 3)
 
-
-as.tibble(lr_results)
+as_tibble(lr_results)
 
 ```
 
 ## Support Vector Machine
-As the support vector machine allows use of a kernel function, it should be able to capture non-linear relationships in space (given an appropriate kernel). Here, a radial basis function kernel is used. Unfortunately, support vector machines do not scale well to large data sets, so here we will only use 20000 rows for training.
+As the support vector machine allows use of a kernel function, it should be able to capture non-linear relationships in space (given an appropriate kernel). Here, a radial basis function kernel is used. Unfortunately, support vector machines do not scale well to large data sets, so here we will only use 10000 rows.
+
 ```{r}
-# Make train and test data (normally want train > test
-# but SVM won't compute with large number of rows)
-train_idxs <- sample(1:nrow(df), 20000)
-train <- df[train_idxs, ]
-test <- df[-train_idxs, ]
+idxs <- sample(1:nrow(df), 10000)
+X <- X[idxs, ]
+y <- y[idxs]
 
-# Create svm using e1071 package
-svm_ <- svm(arrest ~ ., data = train, type = "C-classification", kernel = "radial", cachesize = 120)
+svm <- SupportVectorMachine$new(kernel = "radial")
+svm_results <- kfold_cv(svm, X, y, metrics, 5, 3, parallel = TRUE, n_threads = 5)
 
-y_hat <- predict(svm_, newdata = test)
-svm_results <- confusionMatrix(y_hat, as.factor(test$arrest))
-
+as_tibble(svm_results)
 ```
 
 ## Random Forest
-The random forest trains multiple decision trees using a subset of features to create each tree. Decision trees are an ordered set of rules defined on the feature values that attempt to split the data into classes. They have a tendency to overfit, the random forest solves this by growing multiple trees on different features within the datset. In the classification case a prediction is made by predicting from each decision tree seperately and finding the most common predicted class. They are a black-box method but can be useful for prediction. We train our random forest using the `randomForest` package. Due to the high computational cost involed in fitting random forest models we train it on a subset of the data taking 20000 rows as we did for the SVM.
+The random forest trains multiple decision trees using a subset of features to create each tree. Decision trees are an ordered set of rules defined on the feature values that attempt to split the data into classes. They have a tendency to overfit, the random forest solves this by growing multiple trees on different features within the dataset. In the classification case a prediction is made by predicting from each decision tree separately and finding the most common predicted class. They are a black-box method but can be useful for prediction. We train our random forest using the `randomForest` package. Due to the high computational cost involved in fitting random forest models we train it on a subset of the data taking 10000 rows as we did for the SVM.
+
+
+
+```{r}
+
+X <- select(X, - "community_area") 
+
+rf <- RandomForest$new()
+rf_results <- kfold_cv(rf, X, y, metrics, 5, 3, parallel = TRUE, n_threads = 3)
+as_tibble(rf_results)
+```
+
 
 ```{r}
 # randomForest can't take categorical variables with more than 53 levels, as spatial information should be captured
-# by long/lat we remove this from the data set
+# by long/lat we remove community area from the data set
 rf_train <- select(train, - "community_area") 
 rf <-randomForest(select(rf_train, -"arrest"), y = as.factor(rf_train$arrest))
 y_hat <- predict(rf, newdata = test)
