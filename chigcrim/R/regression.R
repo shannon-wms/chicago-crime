@@ -76,17 +76,15 @@ KernelRidge <- R6Class("KernelRidge", public = list(
   #' Gives the kernel function with hyperparameters set.
   get_kernel_function = function(){
     if (self$kernel == "linear"){
-      k <- private$linear_kernel
-      return(k)
+      return(private$linear_kernel)
     }
 
     else if (self$kernel == "polynomial"){
-      k <- function(x1, X2){private$polynomial_kernel(x1, X2, self$A, self$B)}
-      return(k)
+      return(function(x1, X2) private$polynomial_kernel(x1, X2, self$A, self$B))
     }
 
     else if (self$kernel == "rbf"){
-      return(function(x1, X2){private$rbf_kernel(x1, X2, self$A)})
+      return(function(x1, X2) private$rbf_kernel(x1, X2, self$A))
     }
   },
 
@@ -109,9 +107,8 @@ KernelRidge <- R6Class("KernelRidge", public = list(
     for (j in 1:self$n){
       K[, j] <- self$kernel_function(X_train[j, ], X_train)
     }
-    I <- diag(nrow=self$n, ncol=self$n)
-    self$inv_big_k_lambda_y_train <- solve(K + self$lambda*I,
-                                           self$y_train)
+    I <- diag(nrow = self$n, ncol = self$n)
+    self$inv_big_k_lambda_y_train <- solve(K + self$lambda*I, self$y_train)
   },
 
   #' @description
@@ -184,10 +181,41 @@ squared_error_loss <- function(y_hat, y){
   mean((y_hat - y)^2)
 }
 
+#' Root mean squared error loss
+#'
+#' @param y_hat Vector of predictions.
+#' @param y Vector of observed values.
+#'
+#' @return Float root mean squared error loss
+#' @export
+#'
+#' @examples
+#' rmse_loss(c(1,2,3), c(2,3,2))
+rmse_loss <- function(y_hat, y){
+  sqrt(mean((y_hat - y)^2))
+}
+
+#' R-Squared
+#'
+#' Calculates the R2 value.
+#'
+#' @param y_hat Vector of predictions.
+#' @param y Vector of observed values.
+#'
+#' @return Float R2 value between 0 and 1.
+#' @export
+#'
+#' @examples
+#' r_squared(c(1,2,3), c(2,3,2))
+r_squared <- function(y_hat, y){
+  cor(y_hat, y)^2
+}
+
 #' Poisson GAM Regression
 #'
 #' @description
-#' R6 class for the Poisson family of GAMs.
+#' R6 class wrapper for the Poisson family of GAMs, fitted via `gam` from the package
+#' mgcv.
 #'
 #' @field df_train The training dataset.
 #' @field df_test The test dataset.
@@ -259,7 +287,7 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   #' @param ... Additional arguments to be passed to `gam`.
   fit = function(df_train, convert = FALSE, n_threads = 1, ...) {
     # Convert date column to instants if necessary
-    if (convert) df_train %<>% convert_dates()
+    if (convert) df_train %<>% convert_dates(exclude = "hour")
     if (self$filter_week && self$time_period == "week") {
       self$df_train <- df_train %>% filter(as.integer(week) < 53)
     } else self$df_train <- df_train
@@ -287,14 +315,15 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   predict = function(df_test = NULL, convert = FALSE) {
     if (!is.null(df_test)) {
       # Convert date column to instants if necessary
-      if (convert) df_test %<>% convert_dates()
+      if (convert) df_test %<>% convert_dates(exclude = "hour")
       if (self$filter_week && self$time_period == "week") {
         self$df_test <- df_test %>% filter(as.integer(week) < 53)
       } else self$df_test <- df_test
       # Create count data
       self$count_test <- private$get_count_data(self$df_test)
-      self$predictions <- predict(self$gam_fitted, newdata = self$count_test,
-                             type = "response")
+      # Prediction on test data
+      self$predictions <- predict(self$gam_fitted, newdata = self$count_test, 
+                                  type = "response")
     } else { # No test data, predict on training data
       self$predictions <- predict(self$gam_fitted, type = "response")
     }

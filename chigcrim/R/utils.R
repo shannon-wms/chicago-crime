@@ -188,7 +188,8 @@ cv_eval <- function(object, X, y, error, index){
 #' containing a vector of length `n_reps` corresponding to the mean error
 #' averaged over `k` folds.
 #' @export
-kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, parallel = FALSE, n_threads = NULL) {
+kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, 
+                     parallel = FALSE, n_threads = NULL) {
   n <- nrow(X)
   m <- length(error_funcs)
   if (parallel) { # Parallel computations
@@ -276,50 +277,4 @@ convert_dates <- function(df, date_col = "date", as_factors = TRUE, exclude = NU
     } else df <- df[, !names(df) %in% exclude]
   }
   return(df)
-}
-
-
-
-#' Accuracy
-#' Calculates the proportion of correctly classified predictions.
-#' @param y_hat 0 1 vector of predictions.
-#' @param y_test 0 1 vector of observations.
-#'
-#' @return float proportion of correct predictions
-#' @export
-#'
-#' @examples
-#' classification_accuracy(c(0,1,0), c(0,1,1))
-classification_accuracy <- function(y_hat, y_test){
-  sum(y_hat == y_test)/length(y_hat)
-}
-
-#' Sensitivity
-#' Calculates the sensitivity (proportion of positives correctly identified).
-#'
-#' @param y_hat 0 1 vector of predictions.
-#' @param y_test 0 1 vector of observations.
-#'
-#' @return float sensitivity
-#' @export
-#'
-#' @examples
-#' classification_sensitivity(c(0,1,0), c(0,1,1))
-classification_sensitivity <- function(y_hat, y_test){
-  sum(y_hat[y_test == 1] == 1) / length(y_hat[y_test == 1])
-}
-
-#' Specificity
-#' Calculates the specificity (proportion of negatives correctly identified).
-#'
-#' @param y_hat 0 1 vector of predictions.
-#' @param y_test 0 1 vector of observations.
-#'
-#' @return float specificity.
-#' @export
-#'
-#' @examples
-#' classification_specificity(c(0,1,0), c(0,1,1))
-classification_specificity <- function(y_hat, y_test){
-  sum(y_hat[y_test == 0] == 0) / length(y_hat[y_test == 0])
 }

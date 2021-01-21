@@ -23,44 +23,19 @@ devtools::load_all()
 ## Data
 
 For the training data we will use historical data from 2016 - 2018. We will then predict on the data from 2019 to test the model.
-```{r}
-# Load training data
-crime_2016 <- load_data(2016, strings_as_factors = TRUE)
-crime_2017 <- load_data(2017, strings_as_factors = TRUE)
-crime_2018 <- load_data(2018, strings_as_factors = TRUE)
-
-# bind_rows faster than rbind
-crime_train <- bind_rows(crime_2016, crime_2017, crime_2018)
-
-```
-
-```{r}
-# Load test data
-crime_2019 <- load_data(2019, strings_as_factors = TRUE)
-
-crime_test <- crime_2019
+```{r, cache = TRUE}
+# Downoad training data
+crime_train <- load_data(c(2016, 2018), strings_as_factors = TRUE)
+# Download test data
+crime_test <- load_data(2019, strings_as_factors = TRUE)
 ```
 
 It is then necessary to prepare the data for its' use within the Generalised Additive Models. 
 
 ```{r}
 # Extract useful information from the date
-# Include week for later use
-crime_train %<>%
-  mutate(month = factor(month(date)),
-         week = factor(week(date)),
-         day = factor(day(date)),
-         hour = factor(hour(date)),
-         yday = yday(date),
-         date = date(date)) 
-
-crime_test %<>%
-  mutate(month = factor(month(date)),
-         week = factor(month(date)),
-         day = factor(day(date)),
-         hour = factor(hour(date)),
-         yday = yday(date),
-         date = date(date)) 
+crime_train %<>% convert_dates(exclude = "hour")
+crime_test %<>% convert_dates(exclude = "hour")
 
 
 # List of features to use in GAM
@@ -71,11 +46,8 @@ keep_features <- c("month", "week", "year", "day", "date", "community_area",
 # Use all_of(keep_features) to suppress warning message
 gam_train <- crime_train %>% select(all_of(keep_features)) %>% na.omit() %>% 
   mutate(day = as.numeric(day))
-
 gam_test <- crime_test %>% select(all_of(keep_features)) %>% na.omit() %>% 
   mutate(day = as.numeric(day))
-
-gam_train
 ```
 
 We are interested in predicting the daily number of crimes, each row represents a crime thus we need to sum the rows for each day to get the number of crimes. We can use the `count` function to achieve this. Later we will look at breaking down the data further to predict how many of each type of crime (by FBI code) will occur in each commmunity area on a given day.
@@ -306,7 +278,25 @@ summary(gam_com)
 
 # Using PoissonGAM object
 
+Initialise a `PoissonGAM` object that uses week as the time period, and community_area as the region, over which to aggregate, does not include a neighbourhood list (`community_area` used as a factor), takes `fbi_code` as factor too, and filters out any weeks > 52 for consistency.
+
+It takes `gam_train` as the dataset, which is automatically converted to count data aggregated over the above factors. Fitting is performed in parallel over 7 threads.
 
 ```{r}
-spatial_dat
+pg <- PoissonGAM$new(time_period = "week", region = "community_area",
+                     include_nb = FALSE, include_crimetype = TRUE, 
+                     filter_week = TRUE)
+# Fit using gam_train as the dataset 
+pg$fit(gam_train, n_threads = 7)
+pg$gam_fitted
+pg$fit_summary
+# Prediction on the same dataset
+pg$predict()
+pg$predictions
+# New object with the same properties as pg
+pg1 <- pg
+pg1$gam_fitted
+# Prediction on test dataset instead - doesn't currently work
+pg1$predict(gam_test)
+pg1$predictions
 ```

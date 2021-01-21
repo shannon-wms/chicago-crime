@@ -1,5 +1,6 @@
 # Script contains functions and classes for classification algorithms
 #' @importFrom R6 R6Class
+#' @importFrom e1071 svm
 #' @import ggplot2
 NULL
 
@@ -24,8 +25,8 @@ sigmoid <- function(z){
 #' @field X Training X (dataframe or matrix).
 #' @field y Training y vector.
 #' @field theta The fitted parameters.
-#' @field control list passed to optim control.
-#' @field round_y_hat boolean, whether to round predictions to 0 and 1.
+#' @field control List of control parameters to be passed to optim control.
+#' @field round_y_hat Logical, whether to round predicted values to 0 and 1.
 #' @export
 #' @examples
 #' X <- subset(mtcars, select = c("mpg", "wt"))
@@ -145,15 +146,19 @@ LogisticRegression <- R6Class("LogisticRegression", list(
 
 
 #' Support vector machine wrapper
+#' 
+#' @description
 #' R6 class wrapper for support vector machine implementation from e1071 package.
 #'
 #' @field kernel Kernel function to use (as in svm documentation)
-#' @field fitted_model svm object.
+#' @field fitted_model `svm` object representing the fitted model.
+#' @field predictions Predicted values of given test dataset.
 #' @export
 SupportVectorMachine <- R6Class("SupportVectorMachine", list(
   kernel = NULL,
   fitted_model = NULL,
-
+  predictions = NULL,
+  
   #' @description
   #' Create new SVM object.
   #' @param kernel Kernel function to use.
@@ -165,7 +170,7 @@ SupportVectorMachine <- R6Class("SupportVectorMachine", list(
   #' Fit the object to training data X and y.
   #' @param X Training data (dataframe or matrix).
   #' @param y Training data (vector).
-  #' @param ... Additional arguments passed to svm..
+  #' @param ... Additional arguments to be passed to `svm`.
   fit = function(X, y, ...){
     library(e1071)
     df <- cbind(X, y)
@@ -178,8 +183,8 @@ SupportVectorMachine <- R6Class("SupportVectorMachine", list(
   #' Predict on X.
   #' @param X X training or testing X.
   predict = function(X){
-    y_hat <- predict(self$fitted_model, newdata = X)
-    as.logical(y_hat)
+    self$predictions <- predict(self$fitted_model, newdata = X)
+    as.logical(self$predictions)
   }
 ))
 
@@ -187,23 +192,23 @@ SupportVectorMachine <- R6Class("SupportVectorMachine", list(
 #' Random forest
 #' R6 class wrapper for random forest. Uses randomForest package.
 #'
-#' @field fitted_model fitted randomForest object.
+#' @field fitted_model Fitted randomForest object.
+#' @field predictions Predicted response values for test dataset.
 #' @export
 RandomForest <- R6Class("RandomForest", list(
   fitted_model = NULL,
-
+  predictions = NULL,
   #' @description
   #' Create new randomForest object.
-  #' @param kernel Kernel function to use.
-  initialize = function(){
+  initialize = function() {
   },
 
   #' @description
   #' Fit the object to training data X and y.
-  #' @param X Training data (dataframe or matrix).
-  #' @param y Training data (vector).
-  #' @param ... Additional arguments passed to randomForest.
-  fit = function(X, y, ...){
+  #' @param X Training dataset (as a dataframe or matrix).
+  #' @param y Training dataset (as vector).
+  #' @param ... Additional arguments to bepassed to randomForest.
+  fit = function(X, y, ...) {
     library(randomForest)
     df <- cbind(X, y)
     self$fitted_model <- randomForest(X, y = as.factor(y))
@@ -212,11 +217,56 @@ RandomForest <- R6Class("RandomForest", list(
 
   #' @description
   #' Predict on X.
-  #' @param X X training or testing X.
-  predict = function(X){
-    y_hat <- predict(self$fitted_model, newdata = X)
-    as.logical(y_hat)
+  #' @param X Training or test data matrix.
+  predict = function(X) {
+    self$predictions <- predict(self$fitted_model, newdata = X)
+    as.logical(self$predictions)
   }
 ))
+
+#' Accuracy
+#' Calculates the proportion of correctly classified predictions.
+#' @param y_hat 0 1 vector of predictions.
+#' @param y_test 0 1 vector of observations.
+#'
+#' @return float proportion of correct predictions
+#' @export
+#'
+#' @examples
+#' classification_accuracy(c(0,1,0), c(0,1,1))
+classification_accuracy <- function(y_hat, y_test){
+  sum(y_hat == y_test)/length(y_hat)
+}
+
+#' Sensitivity
+#' Calculates the sensitivity (proportion of positives correctly identified).
+#'
+#' @param y_hat 0 1 vector of predictions.
+#' @param y_test 0 1 vector of observations.
+#'
+#' @return float sensitivity
+#' @export
+#'
+#' @examples
+#' classification_sensitivity(c(0,1,0), c(0,1,1))
+classification_sensitivity <- function(y_hat, y_test){
+  sum(y_hat[y_test == 1] == 1) / length(y_hat[y_test == 1])
+}
+
+#' Specificity
+#' Calculates the specificity (proportion of negatives correctly identified).
+#'
+#' @param y_hat 0 1 vector of predictions.
+#' @param y_test 0 1 vector of observations.
+#'
+#' @return float specificity.
+#' @export
+#'
+#' @examples
+#' classification_specificity(c(0,1,0), c(0,1,1))
+classification_specificity <- function(y_hat, y_test){
+  sum(y_hat[y_test == 0] == 0) / length(y_hat[y_test == 0])
+}
+
 
 
