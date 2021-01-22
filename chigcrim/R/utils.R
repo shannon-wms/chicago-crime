@@ -258,7 +258,8 @@ convert_dates <- function(df, date_col = "date", as_factors = TRUE, exclude = NU
              week = factor(week(get(date_col))),
              day = factor(day(get(date_col))),
              hour = factor(hour(get(date_col))),
-             yday = yday(get(date_col)),
+             yday = as.integer(yday(get(date_col))),
+             wday = as.integer(wday(get(date_col))),
              date = date(get(date_col)))
   } else { # No factors
     df %<>%
@@ -266,7 +267,8 @@ convert_dates <- function(df, date_col = "date", as_factors = TRUE, exclude = NU
              week = week(get(date_col)),
              day = day(get(date_col)),
              hour = hour(get(date_col)),
-             yday = yday(get(date_col)),
+             yday = as.integer(yday(get(date_col))),
+             wday = as.integer(wday(get(date_col))),
              date = date(get(date_col)))
   }
   # Remove specified rows to exclude
