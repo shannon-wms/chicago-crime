@@ -7,7 +7,7 @@
 rmse_loss(y_hat, y)
 }
 \arguments{
-\item{y_hat}{Vector of predictions.}
+\item{y_hat}{Vector of predicted values.}
 
 \item{y}{Vector of observed values.}
 }
