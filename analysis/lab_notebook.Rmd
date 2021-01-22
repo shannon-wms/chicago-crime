@@ -20,7 +20,7 @@ The notebook will be broken up into four sections:
 
 3. Forecasting the number of crimes.
 
-4. Work flow and Computational Techniques.
+4. Workflow and Computational Techniques.
 
 
 
