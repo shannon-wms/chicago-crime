@@ -2,6 +2,7 @@
 #' @importFrom R6 R6Class
 #' @importFrom e1071 svm
 #' @import ggplot2
+#' @import stats
 NULL
 
 #' Sigmoid function
@@ -146,7 +147,7 @@ LogisticRegression <- R6Class("LogisticRegression", list(
 
 
 #' Support vector machine wrapper
-#' 
+#'
 #' @description
 #' R6 class wrapper for support vector machine implementation from e1071 package.
 #'
@@ -158,7 +159,7 @@ SupportVectorMachine <- R6Class("SupportVectorMachine", list(
   kernel = NULL,
   fitted_model = NULL,
   predictions = NULL,
-  
+
   #' @description
   #' Create new SVM object.
   #' @param kernel Kernel function to use.

@@ -9,6 +9,7 @@
 #' @import doParallel
 #' @import parallel
 #' @import foreach
+#' @import stats
 NULL
 
 #' Parse matrix into useful format for ML algorithms
@@ -188,7 +189,7 @@ cv_eval <- function(object, X, y, error, index, ...){
 #' containing a vector of length `n_reps` corresponding to the mean error
 #' averaged over `k` folds.
 #' @export
-kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, 
+kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000,
                      parallel = FALSE, n_threads = NULL, ...) {
   n <- nrow(X)
   m <- length(error_funcs)

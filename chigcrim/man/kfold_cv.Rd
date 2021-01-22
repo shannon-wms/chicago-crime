@@ -12,7 +12,8 @@ kfold_cv(
   k,
   n_reps = 1000,
   parallel = FALSE,
-  n_threads = NULL
+  n_threads = NULL,
+  ...
 )
 }
 \arguments{

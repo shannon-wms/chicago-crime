@@ -4,7 +4,7 @@
 \alias{cv_eval}
 \title{Indexed cross-validation for R6 class}
 \usage{
-cv_eval(object, X, y, error, index)
+cv_eval(object, X, y, error, index, ...)
 }
 \arguments{
 \item{object}{R6 class with fit and predict methods.}
