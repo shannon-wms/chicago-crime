@@ -4,7 +4,8 @@
 \alias{PoissonGAM}
 \title{Poisson GAM Regression}
 \description{
-R6 class for the Poisson family of GAMs.
+R6 class wrapper for the Poisson family of GAMs, fitted via `gam` from the package
+mgcv.
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
@@ -19,10 +20,11 @@ R6 class for the Poisson family of GAMs.
 \item{\code{region}}{Specifies the spatial region to use: must be one of "beat", "district",
 "ward" or "community".}
 
+\item{\code{crime_type}}{The crime type to include in the model as predictor. If `NULL`, 
+this will not be included in the model.}
+
 \item{\code{include_nb}}{Whether to include a neighbours list for the discrete spatial
 regions and then use a Markov random field smoother for fitting.}
-
-\item{\code{include_crimetype}}{Whether to include crime types as a predictor in the model.}
 
 \item{\code{filter_week}}{If using weeks, whether to filter out week 53, as it
 typically has fewer than 7 days and can lead to spurious results.}
@@ -63,8 +65,8 @@ Create new PoissonGAM object.
 \if{html}{\out{<div class="r">}}\preformatted{PoissonGAM$new(
   time_period = "week",
   region = "community_area",
+  crime_type = NULL,
   include_nb = FALSE,
-  include_crimetype = FALSE,
   filter_week = TRUE
 )}\if{html}{\out{</div>}}
 }
@@ -78,10 +80,11 @@ over which counts are aggregated.}
 \item{\code{region}}{One of "beat" or "community_area", specifying the region over
 which counts are aggregated.}
 
+\item{\code{crime_type}}{crime_type The crime type to include in the model as predictor. 
+If `NULL`, this will not be included in the model.}
+
 \item{\code{include_nb}}{Whether to include a neighbourhood list for the regions,
 and hence whether to use a Markov random field smoother for the region.}
-
-\item{\code{include_crimetype}}{Whether to include crime type as a predictor.}
 
 \item{\code{filter_week}}{Whether to filter out the 53rd week.}
 }

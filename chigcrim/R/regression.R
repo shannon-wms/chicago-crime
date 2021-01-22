@@ -223,9 +223,10 @@ r_squared <- function(y_hat, y){
 #' "months".
 #' @field region Specifies the spatial region to use: must be one of "beat", "district",
 #' "ward" or "community".
+#' @field crime_type The crime type to include in the model as predictor. If `NULL`, 
+#' this will not be included in the model.
 #' @field include_nb Whether to include a neighbours list for the discrete spatial
 #' regions and then use a Markov random field smoother for fitting.
-#' @field include_crimetype Whether to include crime types as a predictor in the model.
 #' @field filter_week If using weeks, whether to filter out week 53, as it
 #' typically has fewer than 7 days and can lead to spurious results.
 #' @field n_threads Number of threads to use when fitting the GAM in parallel.
@@ -243,8 +244,8 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   df_test = "data.frame",
   time_period = "character",
   region = "character",
+  crime_type = "character",
   include_nb = "logical",
-  include_crimetype = "logical",
   filter_week = "logical",
   n_threads = "integer",
   nbd_list = "list",
@@ -260,17 +261,17 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   #' over which counts are aggregated.
   #' @param region One of "beat" or "community_area", specifying the region over
   #' which counts are aggregated.
+  #' @param crime_type crime_type The crime type to include in the model as predictor. 
+  #' If `NULL`, this will not be included in the model.
   #' @param include_nb Whether to include a neighbourhood list for the regions,
   #' and hence whether to use a Markov random field smoother for the region.
-  #' @param include_crimetype Whether to include crime type as a predictor.
   #' @param filter_week Whether to filter out the 53rd week.
   initialize = function(time_period = "week", region = "community_area",
-                        include_nb = FALSE, include_crimetype = FALSE,
-                        filter_week = TRUE) {
+                        crime_type = NULL, include_nb = FALSE, filter_week = TRUE) {
     self$time_period <- time_period
     self$region <- region
+    self$crime_type <- crime_type
     self$include_nb <- include_nb
-    self$include_crimetype <- include_crimetype
     self$filter_week <- filter_week
 
     private$check_params()
@@ -289,19 +290,23 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
     # Convert date column to instants if necessary
     if (convert) df_train %<>% convert_dates(exclude = "hour")
     if (self$filter_week && self$time_period == "week") {
-      self$df_train <- df_train %>% filter(as.integer(week) < 53)
+      self$df_train <- df_train %>% filter(as.integer(week) < 53) %>%
+        mutate(week = factor(week))
     } else self$df_train <- df_train
     # Create count data
     self$count_train <- private$get_count_data(self$df_train)
     ctrl <- gam.control(nthreads = n_threads)
     # Construct formula for GAM
     f <- formula(paste("n ~ s(as.numeric(", self$time_period, "), bs = 'cc')"))
+    # Add crime type to formula
+    if (!is.null(self$crime_type)) {
+      f <- formula(paste(deparse(f), "+ ", self$crime_type))
+    }
     # Add region and neighbourhood list if required
     if (self$include_nb) {
-      f <- formula(paste(deparse(f), "+", "s(", self$region, ", bs = 'mrf', xt = list(nb =", self$nbd_list, "))"))
+      f <- formula(paste(deparse(f), "+ s(", self$region,  
+                         ", bs = 'mrf', xt = list(nb = self$nbd_list))"))
     } else f <- formula(paste(deparse(f), "+", self$region))
-    # Add crime type to formula
-    if (self$include_crimetype) f <- formula(paste(deparse(f), "+ fbi_code"))
     # Fit GAM using mgcv
     self$gam_fitted <- gam(f, data = self$count_train, family = "poisson",
                            control = ctrl, ...)
@@ -317,7 +322,8 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
       # Convert date column to instants if necessary
       if (convert) df_test %<>% convert_dates(exclude = "hour")
       if (self$filter_week && self$time_period == "week") {
-        self$df_test <- df_test %>% filter(as.integer(week) < 53)
+        self$df_test <- df_test %>% filter(as.integer(week) < 53) %>%
+          mutate(week = factor(week))
       } else self$df_test <- df_test
       # Create count data
       self$count_test <- private$get_count_data(self$df_test)
@@ -335,27 +341,32 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
       stop('Time period must be one of "yday", "week" or "month".')
     } else if (!self$region %in% c("beat", "community_area")) {
       stop('Region must be one of "beat" or "community_area".')
+    } else if (!self$crime_type %in% c("primary_type", "description",
+                                       "fbi_code")) {
+      stop('Crime type must be one of "primary_type", "description", or "fbi_code".')
     }
   },
   # Aggregate given dataset into count data
   get_count_data = function(df) {
     # Crime type data included
-    if (self$include_crimetype) {
+    if (!is.null(self$crime_type)) {
       count_data <- df %>%
         mutate(!!eval(self$region) := factor(get(self$region))) %>%
-        count(get(self$region), get(self$time_period), year, fbi_code) %>%
+        count(get(self$region), get(self$time_period), 
+              year, get(self$crime_type)) %>%
         rename(!!eval(self$time_period) := `get(self$time_period)`,
-               !!eval(self$region) := `get(self$region)`) %>%
-        arrange(eval(self$time_period), eval(self$region), fbi_code)
-      # Ensure FBI code is sorted alphabetically
-      count_data$fbi_code %<>% fct_relevel(sort)
+               !!eval(self$region) := `get(self$region)`,
+               !!eval(self$crime_type) := `get(self$crime_type)`) %>%
+        mutate(!!eval(self$crime_type) := fct_relevel(get(self$crime_type), sort)) %>%
+        arrange(get(self$region), get(self$time_period), 
+                get(self$crime_type), year)
     } else { # Crime type data not included
       count_data <- df %>%
         mutate(!!eval(self$region) := factor(get(self$region))) %>%
         count(get(self$region), get(self$time_period), year) %>%
         rename(!!eval(self$time_period) := `get(self$time_period)`,
                !!eval(self$region) := `get(self$region)`) %>%
-        arrange(eval(self$time_period), eval(self$region))
+        arrange(get(self$time_period), get(self$region), year)
     }
     return(count_data)
   },
