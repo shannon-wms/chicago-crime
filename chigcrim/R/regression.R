@@ -290,22 +290,23 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
     # Convert date column to instants if necessary
     if (convert) df_train %<>% convert_dates(exclude = "hour")
     if (self$filter_week && self$time_period == "week") {
-      self$df_train <- df_train %>% filter(as.integer(week) < 53)
+      self$df_train <- df_train %>% filter(as.integer(week) < 53) %>%
+        mutate(week = factor(week))
     } else self$df_train <- df_train
     # Create count data
     self$count_train <- private$get_count_data(self$df_train)
     ctrl <- gam.control(nthreads = n_threads)
     # Construct formula for GAM
     f <- formula(paste("n ~ s(as.numeric(", self$time_period, "), bs = 'cc')"))
-    # Add region and neighbourhood list if required
-    if (self$include_nb) {
-      f <- formula(paste(deparse(f), "+", "s(", self$region, 
-                         ", bs = 'mrf', xt = list(nb =", self$nbd_list, "))"))
-    } else f <- formula(paste(deparse(f), "+", self$region))
     # Add crime type to formula
     if (!is.null(self$crime_type)) {
-      f <- formula(paste(deparse(f), "+", self$crime_type))
+      f <- formula(paste(deparse(f), "+ ", self$crime_type))
     }
+    # Add region and neighbourhood list if required
+    if (self$include_nb) {
+      f <- formula(paste(deparse(f), "+ s(", self$region,  
+                         ", bs = 'mrf', xt = list(nb = self$nbd_list))"))
+    } else f <- formula(paste(deparse(f), "+", self$region))
     # Fit GAM using mgcv
     self$gam_fitted <- gam(f, data = self$count_train, family = "poisson",
                            control = ctrl, ...)
@@ -321,7 +322,8 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
       # Convert date column to instants if necessary
       if (convert) df_test %<>% convert_dates(exclude = "hour")
       if (self$filter_week && self$time_period == "week") {
-        self$df_test <- df_test %>% filter(as.integer(week) < 53)
+        self$df_test <- df_test %>% filter(as.integer(week) < 53) %>%
+          mutate(week = factor(week))
       } else self$df_test <- df_test
       # Create count data
       self$count_test <- private$get_count_data(self$df_test)
@@ -355,15 +357,16 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
         rename(!!eval(self$time_period) := `get(self$time_period)`,
                !!eval(self$region) := `get(self$region)`,
                !!eval(self$crime_type) := `get(self$crime_type)`) %>%
-        arrange(eval(self$time_period), eval(self$region), eval(self$crime_type)) %>%
-        mutate(!!eval(self$crime_type) := fct_relevel(get(self$crime_type), sort))
+        mutate(!!eval(self$crime_type) := fct_relevel(get(self$crime_type), sort)) %>%
+        arrange(get(self$region), get(self$time_period), 
+                get(self$crime_type), year)
     } else { # Crime type data not included
       count_data <- df %>%
         mutate(!!eval(self$region) := factor(get(self$region))) %>%
         count(get(self$region), get(self$time_period), year) %>%
         rename(!!eval(self$time_period) := `get(self$time_period)`,
                !!eval(self$region) := `get(self$region)`) %>%
-        arrange(eval(self$time_period), eval(self$region))
+        arrange(get(self$time_period), get(self$region), year)
     }
     return(count_data)
   },

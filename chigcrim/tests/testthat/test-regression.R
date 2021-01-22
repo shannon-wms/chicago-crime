@@ -39,7 +39,7 @@ test_that("PoissonGAM", {
   data("test_data")
   # Initialise PoissonGAM object
   pg <- PoissonGAM$new(time_period = "week", region = "community_area", 
-                       include_nb = TRUE, include_crimetype = TRUE,
+                       crime_type = "fbi_code", include_nb = TRUE,
                        filter_week = TRUE)
   pg$fit(df_train = test_data, convert = TRUE, n_threads = 7)
   pg$predict()
@@ -47,19 +47,25 @@ test_that("PoissonGAM", {
   data("community_bounds")
   nbd_list <- spdep::poly2nb(community_bounds, row.names = community_bounds$community)
   names(nbd_list) <- attr(nbd_list, "region.id")
-  test_data %<>% convert_dates() %>% filter(as.integer(week) < 53)
-  count_data <- test_data %>% 
+  test_data %<>% convert_dates(exclude = "hour") %>% 
+    filter(as.integer(week) < 53) %>%
+    mutate(week = factor(week))
+  count_data <- test_data %>%
     mutate(community_area = factor(community_area)) %>%
-    count(community_area, week, fbi_code) %>%
-    arrange(week, community_area, fbi_code)
-  count_data$fbi_code %<>% forcats::fct_relevel()
+    count(week, community_area, year, fbi_code) %>%
+    mutate(fbi_code = forcats::fct_relevel(fbi_code, sort)) %>%
+    relocate(community_area, week) %>%
+    arrange(community_area, week, fbi_code)
+  # Expect the count data passed to the models to be equal
+  expect_equal(count_data, pg$count_train)
   gam_fit <- mgcv::gam(n ~ s(as.numeric(week), bs = "cc") + 
                      s(community_area, bs = "mrf", xt = list(nb = nbd_list)) +
                      fbi_code, 
                    data = count_data, family = "poisson",
                    control = gam.control(nthreads = 7))
   gam_predict <- predict(gam_fit, type = "response")
-  # Expect the fitted model and the predictions to be equal
-  expect_equal(pg$gam_fitted, gam_fit)
+  # Expect the fitted model summaries (except formula which will never be equal) to be equal
+  expect_equal(summary(gam_fit)[-12], summary(pg$gam_fitted)[-12])
+  # Expect the predicted values to be equal
   expect_equal(pg$predictions, gam_predict)
 })
