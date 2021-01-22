@@ -29,3 +29,5 @@ Imports:
     forcats,
     foreach,
     e1071
+Depends: 
+    R (>= 2.10)

@@ -16,6 +16,6 @@ Beat bounds
 The bounds for the police beats.
 }
 \references{
-\url{https://data.cityofchicago.org/Public-Safety/Crimes-2001-to-Present/ijzp-q8t2}
+\url{https://data.cityofchicago.org/Public-Safety/Boundaries-Police-Beats-current-/aerh-rz74}
 }
 \keyword{datasets}

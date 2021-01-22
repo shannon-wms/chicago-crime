@@ -16,6 +16,6 @@ Community bounds
 The community bounds.
 }
 \references{
-\url{https://data.cityofchicago.org/Public-Safety/Crimes-2001-to-Present/ijzp-q8t2}
+\url{https://data.cityofchicago.org/Facilities-Geographic-Boundaries/Boundaries-Community-Areas-current-/cauq-8yn6}
 }
 \keyword{datasets}
