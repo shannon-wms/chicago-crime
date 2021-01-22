@@ -301,7 +301,7 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
       f <- formula(paste(deparse(f), "+", "s(", self$region, ", bs = 'mrf', xt = list(nb =", self$nbd_list, "))"))
     } else f <- formula(paste(deparse(f), "+", self$region))
     # Add crime type to formula
-    if (self$include_crimetype) f <- formula(paste(deparse(f), "+", fbi_code))
+    if (self$include_crimetype) f <- formula(paste(deparse(f), "+ fbi_code"))
     # Fit GAM using mgcv
     self$gam_fitted <- gam(f, data = self$count_train, family = "poisson",
                            control = ctrl, ...)
