@@ -159,14 +159,14 @@ yday_float = function(timestamp){
 #'
 #' @return Test error.
 #' @export
-cv_eval <- function(object, X, y, error, index){
+cv_eval <- function(object, X, y, error, index, ...){
   # Separate X and y into training and test data
   X_train <- X[-index, , drop = FALSE]
   X_test <- X[index, , drop = FALSE]
   y_train <- y[-index]
   y_test <- y[index]
   # Fit training data
-  object$fit(X_train, y_train)
+  object$fit(X_train, y_train, ...)
   # Predict on test data
   y_hat <- object$predict(X_test)
   # Compute error
@@ -189,7 +189,7 @@ cv_eval <- function(object, X, y, error, index){
 #' averaged over `k` folds.
 #' @export
 kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, 
-                     parallel = FALSE, n_threads = NULL) {
+                     parallel = FALSE, n_threads = NULL, ...) {
   n <- nrow(X)
   m <- length(error_funcs)
   if (parallel) { # Parallel computations
@@ -210,7 +210,7 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000,
       for (j in 1:k) {
         errors[[j]] <- mapply(cv_eval, error = error_funcs,
                             MoreArgs = list(object = object, X = X, y = y,
-                                            index = folds[[j]]))
+                                            index = folds[[j]], ...))
       }
       return(errors)
     }
@@ -223,7 +223,7 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000,
       for (j in 1:k) {
         errors[[j]] <- mapply(cv_eval, error = error_funcs,
                               MoreArgs = list(object = object, X = X, y = y,
-                                              index = folds[[j]]))
+                                              index = folds[[j]], ...))
       }
       error_list[[i]] <- errors
     }

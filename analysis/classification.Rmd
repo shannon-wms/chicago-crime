@@ -120,9 +120,15 @@ X <- X[idxs, ]
 y <- y[idxs]
 
 svm <- SupportVectorMachine$new(kernel = "radial")
-svm_results <- kfold_cv(svm, X, y, metrics, 5, 3, parallel = TRUE, n_threads = 5)
+svm_results <- kfold_cv(svm, X, y, metrics, 5, 3, parallel = FALSE, n_threads = 5, gamma = 2^-5, cost = 2^4)
+ob <- tune(e1071::svm, y ~ ., data = cbind(X, y), ranges = list(cost = 2^(-2:5), gamma = 2^(-15:-4)), tunecontrol = tune.control(nrepeat = 3, sampling = "cross", cross = 5), kernel = "radial", type = "C-classification")
+svm_results <- kfold_cv(svm, X, y, metrics, 5, 3, parallel = FALSE, n_threads = 5, gamma = 2^-5, cost = 2^4)
 
 as_tibble(svm_results)
+svm$fit(X, y, gamma = 2^-5, cost = 2^4)
+svm$predict(df)
+svm$predictions
+confusionMatrix(as.factor(svm$predictions), as.factor(df$arrest))
 ```
 
 ### Random Forest
