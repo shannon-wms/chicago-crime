@@ -3,8 +3,8 @@
 \docType{data}
 \name{beat_bounds}
 \alias{beat_bounds}
-\title{Beat bounds
-The bounds for the police beats.}
+\title{Police beat boundaries
+City of Chicago police beat boundaries.}
 \format{
 An object of class \code{sf} (inherits from \code{data.frame}) with 277 rows and 5 columns.
 }
@@ -12,8 +12,8 @@ An object of class \code{sf} (inherits from \code{data.frame}) with 277 rows and
 beat_bounds
 }
 \description{
-Beat bounds
-The bounds for the police beats.
+Police beat boundaries
+City of Chicago police beat boundaries.
 }
 \references{
 \url{https://data.cityofchicago.org/Public-Safety/Boundaries-Police-Beats-current-/aerh-rz74}
