@@ -256,9 +256,9 @@ p3
 
 ```{r echo=FALSE, results='hide', message=FALSE}
 # Save the plots for the methods report
-ggsave("../plots/kr_1.png", p)
-ggsave("../plots/kr_2.png", p2)
-ggsave("../plots/kr_3.png", p3)
+ggsave("../plots/kr_1.pdf", p)
+ggsave("../plots/kr_2.pdf", p2)
+ggsave("../plots/kr_3.pdf", p3)
 ```
 
 We can see a good association between the actual number of crimes in a given month and community area, and the predicted number of crimes on this held-out data.
