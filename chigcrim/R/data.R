@@ -11,7 +11,7 @@ NULL
 NULL
 
 #' test_data.rda
-#' The community bounds.
+#' Test data used in regression.
 #' @references \url{https://data.cityofchicago.org/Public-Safety/Crimes-2001-to-Present/ijzp-q8t2}
 "test_data"
 NULL

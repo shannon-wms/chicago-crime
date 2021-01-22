@@ -4,7 +4,7 @@
 \name{test_data}
 \alias{test_data}
 \title{test_data.rda
-The community bounds.}
+Test data used in regression.}
 \format{
 An object of class \code{tbl_df} (inherits from \code{tbl}, \code{data.frame}) with 50000 rows and 26 columns.
 }
@@ -13,7 +13,7 @@ test_data
 }
 \description{
 test_data.rda
-The community bounds.
+Test data used in regression.
 }
 \references{
 \url{https://data.cityofchicago.org/Public-Safety/Crimes-2001-to-Present/ijzp-q8t2}
