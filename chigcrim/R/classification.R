@@ -1,8 +1,8 @@
 # Script contains functions and classes for classification algorithms
+#' @importFrom stats cor
 #' @importFrom R6 R6Class
 #' @importFrom e1071 svm
 #' @import ggplot2
-#' @import stats
 NULL
 
 #' Sigmoid function

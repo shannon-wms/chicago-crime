@@ -17,6 +17,7 @@ Imports:
     ggplot2,
     RSocrata,
     data.table,
+    stats,
     dplyr,
     lubridate,
     magrittr,

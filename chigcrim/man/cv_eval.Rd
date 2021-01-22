@@ -16,6 +16,8 @@ cv_eval(object, X, y, error, index, ...)
 \item{error}{Function to assess error.}
 
 \item{index}{Vector of indexes corresponding to test data.}
+
+\item{...}{Additional arguments passed to fit}
 }
 \value{
 Test error.
