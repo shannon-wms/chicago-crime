@@ -5,7 +5,25 @@
 \title{Poisson GAM Regression}
 \description{
 R6 class wrapper for the Poisson family of GAMs, fitted via `gam` from the package
-mgcv.
+**mgcv** and tailored for use with a subset of the Chicago Crime dataset. To initialise
+the object, the user supplies the variables over which to aggregate the data and, if 
+"community_area" is chosen as `region`, whether to include a neighbourhood list as part
+of the model. When `fit` is provided with data containing columns corresponding to 
+`region`, `time_period` and `crime_type` as well as a column "date", it will aggregate
+counts over these variables. It then fits a GAM with a cyclic cubic regression smoother for
+`time_period` and treats `region` and `crime_type` as factors (unless a neighbourhood list
+is included, in which case a Markov random field smoother is applied to `region`). For more
+details on model fitting methods, see **mgcv**.
+}
+\examples{
+data <- load_data(2019, na_omit = TRUE)
+test_index <- sample(1:nrow(data), size = nrow(data) \%/\% 10)
+data_train <- data[-test_index, ]
+data_test <- data[test_index, ]
+pg <- PoissonGAM$new(time_period = "week", region = "community_area",
+                     crime_type = NULL, include_nb = FALSE, filter_week = TRUE)
+pg$fit(df_train = data_train, convert = TRUE, n_threads = 1)
+pred <- pg$predict(df_test = data_test, convert = TRUE)
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
@@ -23,15 +41,15 @@ mgcv.
 \item{\code{crime_type}}{The crime type to include in the model as predictor. If `NULL`, 
 this will not be included in the model.}
 
-\item{\code{include_nb}}{Whether to include a neighbours list for the discrete spatial
-regions and then use a Markov random field smoother for fitting.}
+\item{\code{include_nb}}{If "community_area" is the specified region, whether to include a 
+neighbourhood list and then use a Markov random field smoother for fitting.}
 
 \item{\code{filter_week}}{If using weeks, whether to filter out week 53, as it
 typically has fewer than 7 days and can lead to spurious results.}
 
 \item{\code{n_threads}}{Number of threads to use when fitting the GAM in parallel.}
 
-\item{\code{nbd_list}}{Neighbourhood list for the specified region.}
+\item{\code{nb_list}}{Neighbourhood list for the community areas.}
 
 \item{\code{count_train}}{Count data for the training dataset, grouped by the specified
 time period, region, and (optional) crime type.}
@@ -39,7 +57,7 @@ time period, region, and (optional) crime type.}
 \item{\code{count_test}}{Count data for the test dataset, grouped by the specified time
 period, region, and (optional) crime type.}
 
-\item{\code{gam_fitted}}{The GAM, fitted using package mgcv.}
+\item{\code{gam_fitted}}{The GAM, fitted using package **mgcv**.}
 
 \item{\code{fit_summary}}{Summary of the fitted GAM.}
 
@@ -134,6 +152,12 @@ Prediction for a new dataset
 or they are already present.}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Vector of predicted values.
+Check parameters are defined properly
+Aggregate given dataset into count data.
+Construct a neighbourhood list for community areas
 }
 }
 \if{html}{\out{<hr>}}

@@ -18,10 +18,10 @@ added internally.
 \examples{
 n <- 200
 n_test <- 100
-X_train <- matrix(runif(n, -2,4), nrow=n, ncol=1)
-X_test <- matrix(seq(from =-2, to=4, length.out = n_test), nrow=n_test, ncol=1)
+X_train <- matrix(runif(n, -2, 4), nrow = n, ncol = 1)
+X_test <- matrix(seq(from = -2, to = 4, length.out = n_test), nrow = n_test, ncol = 1)
 y_train <- as.vector(sin(X_train)) + rnorm(n, sd = 0.3)
-kr <- KernelRidge$new("rbf", lambda = 1, 3)
+kr <- KernelRidge$new("rbf", lambda = 1, A = 3)
 kr$fit(X_train, y_train)
 y_hat_rbf <- kr$predict(X_test)
 }
@@ -38,9 +38,10 @@ y_hat_rbf <- kr$predict(X_test)
 
 \item{\code{kernel_function}}{The kernel function.}
 
-\item{\code{n}}{Integer length of training data.}
+\item{\code{n}}{Length of training data.}
 
-\item{\code{inv_big_k_lambda_y_train}}{Matrix containing (K + lambda I)^-1 . y_train}
+\item{\code{pred_vector}}{Vector containing (K + lambda I)^-1 * y_train, the 
+pre-computed component of the prediction function.}
 
 \item{\code{X_train}}{Training X matrix.}
 
@@ -50,7 +51,7 @@ y_hat_rbf <- kr$predict(X_test)
 
 \item{\code{y_test}}{Testing y vector.}
 
-\item{\code{prediction}}{The predicted values.}
+\item{\code{predictions}}{The predicted values.}
 }
 \if{html}{\out{</div>}}
 }
@@ -58,7 +59,6 @@ y_hat_rbf <- kr$predict(X_test)
 \subsection{Public methods}{
 \itemize{
 \item \href{#method-new}{\code{KernelRidge$new()}}
-\item \href{#method-get_kernel_function}{\code{KernelRidge$get_kernel_function()}}
 \item \href{#method-fit}{\code{KernelRidge$fit()}}
 \item \href{#method-predict}{\code{KernelRidge$predict()}}
 \item \href{#method-clone}{\code{KernelRidge$clone()}}
@@ -88,16 +88,6 @@ Create new KernelRidge object.
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-get_kernel_function"></a>}}
-\if{latex}{\out{\hypertarget{method-get_kernel_function}{}}}
-\subsection{Method \code{get_kernel_function()}}{
-Gives the kernel function with hyperparameters set.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KernelRidge$get_kernel_function()}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-fit"></a>}}
 \if{latex}{\out{\hypertarget{method-fit}{}}}
 \subsection{Method \code{fit()}}{
@@ -111,7 +101,7 @@ Fits the big K matrix. n by n matrix of kernel evaluations on X_train.
 \describe{
 \item{\code{X_train}}{Training X matrix.}
 
-\item{\code{y_train}}{Training y vector}
+\item{\code{y_train}}{Training y vector.}
 }
 \if{html}{\out{</div>}}
 }
@@ -128,12 +118,16 @@ Predicts on an X matrix (test or train)
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{X_test}}{Test X matrix.
-Radial basis function kernel function (compares matrix rows to vector)
-Polynomial kernel function (compares matrix rows to vector)
-Linear kernel function (compares matrix rows to vector)}
+\item{\code{X_test}}{Test X matrix.}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+predictions A vector of predicted values.
+Gives the kernel function with hyperparameters set.
+Radial basis function kernel function (compares matrix rows to vector)
+Polynomial kernel function (compares matrix rows to vector)
+Linear kernel function (compares matrix rows to vector)
 }
 }
 \if{html}{\out{<hr>}}

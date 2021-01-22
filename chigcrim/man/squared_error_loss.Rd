@@ -18,5 +18,5 @@ Float of the mean squared error loss
 Mean squared error loss
 }
 \examples{
-squared_error_loss(c(1,2,3), c(2,3,2))
+squared_error_loss(c(1, 2, 3), c(2, 3, 2))
 }

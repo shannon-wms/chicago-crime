@@ -3,8 +3,8 @@
 \docType{data}
 \name{community_bounds}
 \alias{community_bounds}
-\title{Community bounds
-The community bounds.}
+\title{Community area boundaries
+City of Chicago community area boundaries.}
 \format{
 An object of class \code{sf} (inherits from \code{data.frame}) with 77 rows and 10 columns.
 }
@@ -12,8 +12,8 @@ An object of class \code{sf} (inherits from \code{data.frame}) with 77 rows and 
 community_bounds
 }
 \description{
-Community bounds
-The community bounds.
+Community area boundaries
+City of Chicago community area boundaries.
 }
 \references{
 \url{https://data.cityofchicago.org/Facilities-Geographic-Boundaries/Boundaries-Community-Areas-current-/cauq-8yn6}
