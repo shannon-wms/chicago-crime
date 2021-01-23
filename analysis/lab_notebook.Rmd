@@ -14,10 +14,11 @@ knitr::opts_knit$set(root.dir = paste0(rprojroot::find_rstudio_root_file(), "/ch
 
 This lab notebook contains the analyses undertaken as part of the COMPASS TB1 group project. We will be working on the Chicago crime data set, which contains information on incidents reported in Chicago.
 
-In this lab notebook we present the analyses undertaken as part of the Compass TB1 group project. We focus on a large, open source dataset provided by the City of Chicago consisting of reported incidents of crime from 2001 to present day, as reported by the Chicago Police Department. The dataset can be obtained from the website \url{https://data.cityofchicago.org/Public-Safety/Crimes-2001-to-Present/ijzp-q8t2}
+In this lab notebook we present the analyses undertaken as part of the Compass TB1 group project. We focus on a large, open source dataset provided by the City of Chicago consisting of reported incidents of crime from 2001 to present day, as reported by the Chicago Police Department. The dataset can be obtained from the website \url{https://data.cityofchicago.org/Public-Safety/Crimes-2001-to-Present/ijzp-q8t2}. 
+
 The notebook will be broken up into four sections:
 
-1. Workflow and Computational Techniques.
+1. Workflow and Computational Techniques: A summary of the approach used in the development of the **chigcrim** package.
 
 2. Classification: Predicting whether a reported crime led to the arrest of a suspect. We consider three different discriminative classifiers: logistic regression, support vector machines, and random forests.
 
@@ -29,42 +30,238 @@ The notebook will be broken up into four sections:
 
 In the development of the package for this project, we utilised many computational techniques, that are outlined below.
 
-## Object-oriented approach
+## Object-oriented programming
 
-We decided to use an object oriented approach to constructing models. Specifically, we made use of the `R6Class` from the `R6` package. `R6` objects are mutable and use an object oriented approach similar to most programming languages (unlike the more basic `S3` and `S4` classes). `R6` classes are very similar to reference classes, although generally `R6` classes are preferred. This is for a variety of reasons, including the fact that `R6` classes are much faster, and they handle fields in a neater way by putting them in a separate environment. More information on this can be found [here](https://adv-r.hadley.nz/r6.html). When building models, a model could be fitted using `model$fit(X, y)`, and predictions made with `model$predict(X)`. It is worth noting that this use of `fit` and `predict` methods in object-oriented machine learning packages is used elsewhere, particularly in the Python package `scikit-learn`. The key advantage of this approach is that it abstracts away the underlying complexities, and creates a consistent structure that makes it easier to compare different models. 
+We decided to use an object oriented approach to constructing models. Specifically, we made use of the `R6Class` from the **R6** package. `R6` objects are mutable and use an object oriented approach similar to most programming languages (unlike the more basic `S3` and `S4` classes). `R6` classes are very similar to reference classes, although generally `R6` classes are preferred. This is for a variety of reasons, including the fact that `R6` classes are much faster, and they handle fields in a neater way by putting them in a separate environment. More information on this can be found [here](https://adv-r.hadley.nz/r6.html). When building models, a model could be fitted using `model$fit(X, y)`, and predictions made with `model$predict(X)`. It is worth noting that this use of `fit` and `predict` methods in object-oriented machine learning packages is used elsewhere, particularly in the **Python** package **scikit-learn**. The key advantage of this approach is that it abstracts away the underlying complexities, and creates a consistent structure that makes it easier to compare different models. 
 
-## Parallel
+## Parallel programming
 
-Parallel programming was used to speed up slow code, utilising the packages `doParallel`, `parallel` and `foreach`. In particular we implemented a parallel cross-validation function `kfold_cv`, which facilitated more accurate and faster assessment of model performance.
+Parallel programming was used to speed up slow code, utilising the package **doParallel** which calls the packages **parallel** and **foreach**. In particular, we implemented a parallel cross-validation function `kfold_cv`, which facilitated more accurate and faster assessment of model performance.
 
 ## Documentation
 
-In order to document functions in the package, we made use of `roxygen2`. This package automatically creates the `.Rd` documentation files for functions (or classes), from comments added above the function definitions. As well as being efficient, this allows the code and documentation to coexist, meaning it is easier to remember to update the documentation.
+In order to document functions in the package, we made use of **roxygen2**. This package automatically creates the `.Rd` documentation files for functions (or classes), from comments added above the function definitions. As well as being efficient, this allows the code and documentation to coexist, meaning it is easier to remember to update the documentation.
+
+## API querying
+
+The Chicago Crime dataset is updated on a daily basis and, at the time of writing, contains over 7 million rows of data. For each reported incident, a total of 22 features are recorded (for a full list of features and their descriptions see the City of Chicago website). We elected not to download the dataset in full and include this in the package as it would consume a significant amount of storage, and quickly become out of date. Instead, we utilised the **RSocrata** package which allows easy interaction with the online open data portal. The wrapper `load_data` allows the end user to directly download the dataset into the R environment, via the function `read.socrata`. `load_data` provides functionality for filtering by year, limiting the number of data points received, and omitting missing/NA values.
 
 ## Testing and continuous integration
 
-For tests, we used the `testthat` package. This simply creates a new directory `./tests/testthat/` in which the user can define tests for the package functions. Although the tests can be run alone, generally, we made use of the package `rcmdcheck`. This contains a function `rcmdcheck::rcmdcheck()`, which not only runs the tests, but also carries out a more sophisticated check. Some examples of what is checked are listed below:
+For tests, we used the **testthat** package. This simply creates a new directory `./tests/testthat/` in which the user can define tests for the package functions. Although the tests can be run alone, generally, we made use of the package **rcmdcheck**. This contains the function `rcmdcheck`, which not only runs the tests, but also carries out a more sophisticated check. Some examples of what is checked are listed below:
 
-- Checks the package installs correctly
+- Checks the package installs correctly.
 
-- Checks for missing documentation
+- Checks for missing documentation.
 
 - Automatically runs examples in documentation, to check they run successfully.
 
-- Checks for undefined variables
+- Checks for undefined variables.
 
-- Checks for missing dependencies
+- Checks for missing dependencies.
 
-In order to make sure that tests and checks were run on a regular basis, continuous integration was set up using github actions. This ran `rcmdcheck::rcmdcheck()`, for each pull request and push to the main/master branch. This limits the possibility of unintentionally introducing breaking changes.
+In order to make sure that tests and checks were run on a regular basis, continuous integration was set up using github actions. This runs `rcmdcheck()` for each pull request and push to the main branch. This limits the possibility of unintentionally introducing breaking changes.
 
+# Classification
 
+```{r message=FALSE}
+# Load our package
+library(chigcrim)
 
+# Use seed to ensure reproducibility
+set.seed(1)
+```
 
+In this section we consider the binary classification task of predicting whether a suspect is arrested, given data on the reported crime. Three models will be investigated: logistic regression, support vector machines and random forest classifiers.
 
+## Assessing performance
 
+To assess performance, three metrics will be used: the overall accuracy, the sensitivity and the specificity. These are defined as follows:
 
+- Overall accuracy: The proportion of correct predictions.
 
+- Sensitivity: The proportion of positive observations correctly predicted.
 
+- Specificity: The proportion of negative observations correctly predicted.
 
+These metrics can be computed using the functions `classification_accuracy`, `classification_sensitivity`, and `classification_specifity`, respectively, from the **chigcrim** package.
+
+Note that as logistic regression is a probabilistic classifier whereas support vector machines and random forests are not. As such, the output from logistic regression is a probability in $[0,1]$. In our analysis, these probabilities are rounded to yield predictions that can be assessed with the metrics above to facilitate the comparison with the results of the other two classifiers.
+
+```{r}
+# List of metrics used to evaluate classification models
+metrics <- list(accuracy = classification_accuracy,
+                sensitivity = classification_sensitivity,
+                specificity = classification_specificity)
+```
+
+For each classifier, we will use repeated $k$-fold cross validation to obtain mean values of the metrics. Specifically, 5-fold cross validation is repeated five times (run in parallel using the function `kfold_cv`), and the metrics are averaged across the folds and repeats.
+
+## Feature selection
+
+Due to the time and computational limitations involved, we shall train the models on a subset of the data from the year 2019.
+
+```{r, cache = TRUE}
+# Load 2019 data to build classification models
+df <- load_data(year = 2019, strings_as_factors = FALSE)
+print(as.data.frame(head(df)))
+```
+
+Below we outline our feature selection and data pre-processing choices. These decisions involved incorporating information from conducting exploratory data analysis (EDA), as well as considering what is computationally feasible.
+
+- Encode the date as the day of the year (an integer between 1-365, or 1-366 for leap years).
+
+- Encode time of day as a floating point in 0-24, as this showed promising results in our EDA.
+
+- Drop `year` as we are only using data from 2019.
+
+- Drop `id` as this is the unique key for each data point.
+
+- We drop `case_number`, as the values are almost all unique and are not informative.
+
+- Drop `primary_type`, `description` and `iucr` code. Keep `fbi_code` as an indicator of crime type.
+
+- Drop `updated_on` as this only refers to when the data was last updated and is uninformative.
+
+- Drop `latitude` and `longitude`, and keep`x_coordinate` and `y_coordinate`. Note that these coordinates likely not particularly useful for linear classifiers, but should be useful for non-linear methods.
+
+- Keep `community_area`, but other areas (`district`, `beat`, `ward` and `block`) are dropped.
+
+- Omit all `NA` values.
+
+- Particularly rare factors will be grouped into a variable other (see `?otherise`).
+
+```{r}
+# Convert rarely used fbi categories to "OTHER"
+df$fbi_code <- otherise(df$fbi_code, 500)
+df$location_description <- otherise(df$location_description, 1000)
+
+# List of features for removal, EDA showed not necessary
+remove_features <- c("id", "year", "case_number", "primary_type", "description",
+                     "iucr", "updated_on", "latitude", "longitude",
+                     "date", "district", "beat", "ward", "block")
+
+# Add more time features, remove missing values and convert columns to factor
+df %<>% mutate(day = yday(df$date), time = hour(df$date) + minute(df$date)/60) %>%
+  select(-all_of(remove_features)) %>%
+  filter(complete.cases(df)) %>%
+  mutate(location_description = as.factor(location_description),
+         fbi_code = as.factor(fbi_code),
+         community_area = as.factor(community_area))
+
+print(as.data.frame(head(df)))
+```
+
+### Logistic Regression
+
+We will first consider a logistic regression classifier, which is a linear classifier for binary data. We use our R6 class `LogisticRegression` which has methods `fit` and `predict`. `fit` calls the function `optim()` internally to minimize the cross-entropy/log-loss function using gradient-based optimisation methods (either BFGS, L-BFGS-B or CG); in our analysis we use BFGS as we don't run into memory issues.
+
+```{r, cache = TRUE}
+# Split into data matrix and response vector
+X <- df %>% select(-arrest)
+y <- df$arrest
+
+# Initialise new LogisticRegression object
+lr <- LogisticRegression$new(solver = "BFGS",
+                             control = list(maxit = 1000, reltol = 1e-4),
+                             rounding = TRUE)
+
+# Find repeated cross-validation error
+system.time(lr_results <- kfold_cv(lr, X, y, metrics, k = 5, n_reps = 5,
+                                   parallel = TRUE, n_threads = 5))
+
+as_tibble(lr_results)
+
+# Export results for use in report
+xtable::xtable(as_tibble(lr_results), digits = 4)
+```
+
+### Support Vector Machines
+
+As the support vector machine (SVM) allows use of a kernel function, it should be able to capture non-linear relationships in the original feature space (given an appropriate kernel). As the relationship between the features and the class is unknown, a radial basis function kernel is used. The R6 class `SupportVectorMachine`, again with `fit` and `predict` methods, is a wrapper of the function `svm` from the dedicated SVM package **e1071**. Unfortunately, support vector machines do not scale well to large data sets, so here we will only use 30,000 rows.
+
+```{r}
+# Subset the data randomly
+index <- sample(1:nrow(df), 30000)
+X_subset <- X[index, ]
+y_subset <- y[index]
+```
+
+In order to obtain optimal values for `cost` and `gamma` to be provided to `svm` for training the SVM, we utilise the built-in generic function `tune` from **e1071** which performs a grid search over given parameter ranges.
+
+```{r}
+# Not run due to time constraints, included for completeness
+e1071::tune(svm, y_subset ~ ., data = cbind(X_subset, y_subset), 
+            ranges = list(cost = 2^(-2:5), gamma = 2^(-15:-4)),
+            tunecontrol = tune.control(nrepeat = 3, sampling = "cross", cross = 5),
+            kernel = "radial", type = "C-classification")
+```
+
+We obtain optimal values of `2^4` for `cost` and `2^-5` for `gamma`, which we use to train our SVM.
+
+```{r, cache = TRUE}
+# Initialise new SupportVectorMachine object
+svm <- SupportVectorMachine$new(kernel = "radial")
+
+# Run repeated 5-fold cross-validation to evaluate performance
+system.time(svm_results <- kfold_cv(svm, X_subset, y_subset, metrics, k = 5, 
+                                    n_reps = 5, parallel = FALSE,
+                                    n_threads = 5, gamma = 2^-5, cost = 2^4))
+
+# Export results for use in report
+xtable::xtable(as_tibble(svm_results), digits = 4)
+
+# Fit the model and predict on 2019 data
+svm$fit(X_subset, y_subset, gamma = 2^-5, cost = 2^4, kernel = "radial")
+```
+
+### Random Forest
+
+The random forest trains multiple decision trees using a subset of features to create each tree. Decision trees are an ordered set of rules defined on the feature values that attempt to split the data into classes. As decision trees have a tendency to overfit, the random forest attempts to overcome this by growing multiple trees on different features within the dataset. In the classification case, a prediction is made by predicting from each decision tree separately and finding the most common predicted class. This is a black-box method but has the potential for good predictive performance.
+
+Our R6 class `RandomForest` is a wrapper for the function `randomForest` from the **randomForest** package. Due to the high computational cost involved in fitting random forest models we again use a smaller subset of the data. Here we use the same dataset used to fit the SVM, with the factor `community_area` removed as the algorithm for fitting the model cannot handle such a large number of factors.
+
+```{r}
+X_subset <- select(X_subset, - "community_area")
+
+# Initialise new RandomForest object
+rf <- RandomForest$new()
+
+# Run repeated 5-fold cross-validation to evaluate performance
+system.time(rf_results <- kfold_cv(rf, X_subset, y_subset, metrics, k = 5, 
+                                   n_reps = 5, parallel = TRUE, n_threads = 5))
+
+# Export results for use in report
+xtable::xtable(as_tibble(rf_results), digits = 4)
+
+```
+
+## Model Comparisons
+
+The models all performed very similarly. Unsurprisingly, the support vector machine and the random forest classifier performed better, due to their ability to capture non-linear relationships. It is worth noting that this difference is surprisingly small, although this could be related to the fact that the logistic regression model was trained on a larger dataset. Alternatively, the SVM results could suggest that encoding the community areas as factors was sufficient to capture much of the spatial aspect of the crimes in logistic regression.
+
+Logistic regression had higher sensitivity than the support vector machine, and thus could be viewed as a preferable option if false negatives are particularly detrimental. It is worth noting however that both support vector machines and logistic regression can be adjusted to reflect unbalanced costs associated with incorrect predictions.
+
+Being an ensemble model, the random forest unsurprisingly performed the best based on all three metrics. It is likely that the random forest could be improved by training on a larger subset of the data and optimising the hyperparameters. The downside of using a random forest is that, as a black-box method, it does not provide any inference as to how the features are used within the model. We are at least able to look at how many times each feature was chosen as a splitting point in all of the trees, providing us with some information as to the importance of each of the features. 
+
+```{r, warning=FALSE}
+# Fit model with optimal hyper parameters
+rf$fit(X, y)
+
+# Get importance of features from model
+imp <- importance(rf$fitted_model)
+imp <- tibble(feature = row.names(imp), mean_decrease_gini = as.vector(imp))
+
+imp <- imp %>%
+  arrange(desc(mean_decrease_gini)) %>%
+  mutate(feature = factor(feature, levels = .$feature))
+
+# Plot importance
+imp_plot <- ggplot(aes(x = feature, y = mean_decrease_gini), data = imp) + 
+  geom_col(fill = "steelblue2") + ylab("Mean decrease in Gini")
+imp_plot
+```
+
+The plot suggests that the most "important" feature is `fbi_code`, which is somewhat unsurprising as this tells us what type of crime was reported. This would intuitively have a significant impact on whether the incident report led to a suspect being arrested. None of the models achieve an accuracy of more than 90%. The availability of more data, for example the demographic background of the suspect and whether they have been arrested previously, would likely allow for more accurate predictions.
 
 
