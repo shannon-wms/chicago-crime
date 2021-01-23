@@ -4,7 +4,13 @@
 \alias{convert_dates}
 \title{Convert dates to other formats in dataframe}
 \usage{
-convert_dates(df, date_col = "date", as_factors = TRUE, exclude = NULL)
+convert_dates(
+  df,
+  date_col = "date",
+  as_factors = TRUE,
+  exclude = NULL,
+  filter_week = FALSE
+)
 }
 \arguments{
 \item{df}{Data frame containing a column with date-time entries to extract
@@ -16,6 +22,9 @@ instants from.}
 into factors.}
 
 \item{exclude}{Specifies which instants to exclude from data frame returned.}
+
+\item{filter_week}{Whether to filter out weeks > 53, as they  usually have <7 days
+and can lead to spurious results.}
 }
 \value{
 Data frame `df` with entries of `date_col` converted into instants.

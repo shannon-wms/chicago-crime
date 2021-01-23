@@ -30,7 +30,6 @@ NULL
 #' @field X_train Training X matrix.
 #' @field y_train Training y vector.
 #' @field X_test Testing X matrix.
-#' @field y_test Testing y vector.
 #' @field predictions The predicted values.
 #' @export
 #' @examples
@@ -53,7 +52,6 @@ KernelRidge <- R6Class("KernelRidge", public = list(
   X_train = "matrix",
   X_test = "matrix",
   y_train = "vector",
-  y_test = "vector",
   predictions = "vector",
 
   #' @description
@@ -73,7 +71,7 @@ KernelRidge <- R6Class("KernelRidge", public = list(
   },
 
   #' @description
-  #' Fits the big K matrix. n by n matrix of kernel evaluations on X_train.
+  #' Fits the Gram matrix, an n*n matrix of kernel evaluations on X_train.
   #' @param X_train Training X matrix.
   #' @param y_train Training y vector.
   fit = function(X_train, y_train){
@@ -220,8 +218,9 @@ r_squared <- function(y_hat, y){
 #' is included, in which case a Markov random field smoother is applied to `region`). For more
 #' details on model fitting methods, see **mgcv**.
 #'
-#' @field df_train The training dataset.
-#' @field df_test The test dataset.
+#' @field X_train The training data matrix.
+#' @field y_train The training response vector.
+#' @field X_test The test data matrix.
 #' @field time_period Specifies the time period: must be one of "days", "weeks" or
 #' "months".
 #' @field region Specifies the spatial region to use: must be one of "beat", "district",
@@ -230,14 +229,7 @@ r_squared <- function(y_hat, y){
 #' this will not be included in the model.
 #' @field include_nb If "community_area" is the specified region, whether to include a 
 #' neighbourhood list and then use a Markov random field smoother for fitting.
-#' @field filter_week If using weeks, whether to filter out week 53, as it
-#' typically has fewer than 7 days and can lead to spurious results.
-#' @field n_threads Number of threads to use when fitting the GAM in parallel.
 #' @field nb_list Neighbourhood list for the community areas.
-#' @field count_train Count data for the training dataset, grouped by the specified
-#' time period, region, and (optional) crime type.
-#' @field count_test Count data for the test dataset, grouped by the specified time
-#' period, region, and (optional) crime type.
 #' @field gam_fitted The GAM, fitted using package **mgcv**.
 #' @field fit_summary Summary of the fitted GAM.
 #' @field predictions Vector of predicted response values for the test dataset.
@@ -245,30 +237,29 @@ r_squared <- function(y_hat, y){
 #' @export
 #' 
 #' @examples
-#' data <- load_data(2019, na_omit = TRUE)
-#' test_index <- sample(1:nrow(data), size = nrow(data) %/% 10)
-#' data_train <- data[-test_index, ]
-#' data_test <- data[test_index, ]
+#' df <- convert_dates(load_data(2019, na_omit = TRUE), filter_week = TRUE)
+#' count_df <- get_count_data(df)
+#' test_index <- sample(1:nrow(count_df), size = nrow(count_df) %/% 10)
+#' X_train <- count_df[-test_index, 1:3]
+#' y_train <- count_df[-test_index, 4]
+#' X_test <- count_df[test_index, 1:3]
 #' pg <- PoissonGAM$new(time_period = "week", region = "community_area",
-#'                      crime_type = NULL, include_nb = FALSE, filter_week = TRUE)
-#' pg$fit(df_train = data_train, convert = TRUE, n_threads = 1)
-#' pred <- pg$predict(df_test = data_test, convert = TRUE)
+#'                      crime_type = NULL, include_nb = FALSE)
+#' pg$fit(X_train, y_train, n_threads = 1)
+#' pred <- pg$predict(X_test)
 PoissonGAM <- R6Class("PoissonGAM", public = list(
-  df_train = "data.frame",
-  df_test = "data.frame",
+  X_train = "data.frame",
+  y_train = "vector",
+  X_test = "data.frame",
   time_period = "character",
   region = "character",
   crime_type = "character",
   include_nb = "logical",
-  filter_week = "logical",
-  n_threads = "integer",
   nb_list = "list",
-  count_train = "data.frame",
-  count_test = "data.frame",
   gam_fitted = "list",
   fit_summary = "list",
   predictions = "numeric",
-
+  
   #' @description
   #' Create new PoissonGAM object.
   #' @param time_period One of "week", "month" or "yday" specifying the time period
@@ -281,34 +272,27 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   #' and hence whether to use a Markov random field smoother for the region.
   #' @param filter_week Whether to filter out the 53rd week.
   initialize = function(time_period = "week", region = "community_area",
-                        crime_type = NULL, include_nb = FALSE, filter_week = TRUE) {
+                        crime_type = NULL, include_nb = FALSE) {
     self$time_period <- time_period
     self$region <- region
     self$crime_type <- crime_type
     self$include_nb <- include_nb
-    self$filter_week <- filter_week
-
+    
     private$check_params()
     if (include_nb) self$nb_list <- private$get_nb_list()
   },
-
+  
   #' @description
   #' Function for fitting a GAM to the training dataset.
-  #' @param df_train The training dataset.
-  #' @param convert Whether the column `date` should be converted to instants
-  #' or they are already present.
+  #' @param X_train The training dataset.
+  #' @param y_train The training response vector.
   #' @param n_threads The number of threads to use for parallel smoothing
   #' parameter selection methods in `gam`.
   #' @param ... Additional arguments to be passed to `gam`.
-  fit = function(df_train, convert = FALSE, n_threads = 1, ...) {
-    # Convert date column to instants if necessary
-    if (convert) df_train %<>% convert_dates(exclude = "hour")
-    if (self$filter_week && self$time_period == "week") {
-      self$df_train <- df_train %>% filter(as.integer(week) < 53) %>%
-        mutate(week = factor(week))
-    } else self$df_train <- df_train
-    # Create count data
-    self$count_train <- private$get_count_data(self$df_train)
+  fit = function(X_train, y_train, n_threads = 1, ...) {
+    self$X_train <- X_train
+    self$y_train <- y_train
+    private$df_train <- cbind(self$X_train, n = self$y_train)
     ctrl <- gam.control(nthreads = n_threads)
     # Construct formula for GAM
     f <- formula(paste("n ~ s(as.numeric(", self$time_period, "), bs = 'cc')"))
@@ -322,35 +306,29 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
                          ", bs = 'mrf', xt = list(nb = self$nb_list))"))
     } else f <- formula(paste(deparse(f), "+", self$region))
     # Fit GAM using mgcv::gam
-    self$gam_fitted <- gam(f, data = self$count_train, family = "poisson",
+    self$gam_fitted <- gam(f, data = private$df_train, family = "poisson",
                            control = ctrl, ...)
     self$fit_summary <- summary(self$gam_fitted)
   },
   #' @description
   #' Prediction for a new dataset
-  #' @param df_test The training dataset.
-  #' @param convert Whether the column `date` should be converted to instants
-  #' or they are already present.
+  #' @param X_test The test data matrix.
+  #' @param quiet If TRUE, the function will not return the predicted values and
+  #' will only update the object.
   #' @return Vector of predicted values.
-  predict = function(df_test = NULL, convert = FALSE) {
-    if (!is.null(df_test)) {
-      # Convert date column to instants if necessary
-      if (convert) df_test %<>% convert_dates(exclude = "hour")
-      if (self$filter_week && self$time_period == "week") {
-        self$df_test <- df_test %>% filter(as.integer(week) < 53) %>%
-          mutate(week = factor(week))
-      } else self$df_test <- df_test
-      # Create count data
-      self$count_test <- private$get_count_data(self$df_test)
+  predict = function(X_test = NULL, quiet = FALSE) {
+    if (!is.null(X_test)) {
+      self$X_test <- X_test
       # Prediction on test data
-      self$predictions <- predict(self$gam_fitted, newdata = self$count_test, 
+      self$predictions <- predict(self$gam_fitted, newdata = self$X_test, 
                                   type = "response")
     } else { # No test data, predict on training data
       self$predictions <- predict(self$gam_fitted, type = "response")
     }
-    return(self$predictions)
+    if (!quiet) return(self$predictions)
   }
 ), private = list(
+  df_train = "data.frame",
   #' Check parameters are defined properly
   check_params = function() {
     if (!self$time_period %in% c("week", "day", "month")) {
@@ -362,29 +340,6 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
     } else if (self$include_nb && !(self$region == "community_area")) {
       stop('Neighbourhood list is compatible only with "community_area" type region.')
     }
-  },
-  #' Aggregate given dataset into count data.
-  get_count_data = function(df) {
-    # Crime type data included
-    if (!is.null(self$crime_type)) {
-      count_data <- df %>%
-        mutate(!!eval(self$region) := factor(get(self$region))) %>%
-        count(get(self$region), get(self$time_period), 
-              year, get(self$crime_type)) %>%
-        rename(!!eval(self$time_period) := `get(self$time_period)`,
-               !!eval(self$region) := `get(self$region)`,
-               !!eval(self$crime_type) := `get(self$crime_type)`) %>%
-        mutate(!!eval(self$crime_type) := fct_relevel(get(self$crime_type), sort)) %>%
-        arrange(get(self$region), get(self$time_period), get(self$crime_type), year)
-    } else { # Crime type data not included
-      count_data <- df %>%
-        mutate(!!eval(self$region) := factor(get(self$region))) %>%
-        count(get(self$region), get(self$time_period), year) %>%
-        rename(!!eval(self$time_period) := `get(self$time_period)`,
-               !!eval(self$region) := `get(self$region)`) %>%
-        arrange(get(self$time_period), get(self$region), year)
-    }
-    return(count_data)
   },
   #' Construct a neighbourhood list for community areas
   get_nb_list = function() {
