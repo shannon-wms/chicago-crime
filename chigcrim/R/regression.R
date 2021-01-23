@@ -357,7 +357,7 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
       stop('Time period must be one of "yday", "week" or "month".')
     } else if (!self$region %in% c("beat", "ward", "district", "community_area")) {
       stop('Region must be one of "beat", "ward", "district", or "community_area".')
-    } else if (!self$crime_type %in% c("primary_type", "description", "fbi_code")) {
+    } else if (!(is.null(self$crime_type)) && !(self$crime_type %in% c("primary_type", "description", "fbi_code"))) {
       stop('Crime type must be one of "primary_type", "description", or "fbi_code".')
     } else if (self$include_nb && !(self$region == "community_area")) {
       stop('Neighbourhood list is compatible only with "community_area" type region.')
