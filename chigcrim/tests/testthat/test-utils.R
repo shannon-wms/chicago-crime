@@ -33,7 +33,7 @@ test_that("cv_eval works for class Logistic Regression", {
   # Initialise LogisticRegression object  
   lr <- LogisticRegression$new(solver = "BFGS",
                                control = list(maxit = 1000, reltol = 1e-4),
-                               round_y_hat = TRUE)
+                               rounding = TRUE)
   error_funcs <- list(accuracy = classification_accuracy, 
                       sensitivity = classification_sensitivity,
                       specificity = classification_specificity)
