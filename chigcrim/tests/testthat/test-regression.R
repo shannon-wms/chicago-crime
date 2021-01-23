@@ -35,33 +35,25 @@ test_that("KernelRidge", {
 })
 
 test_that("PoissonGAM", {
-  # Make a limited dataset from Chicago crime data
+  # Make a data set for fitting
+  df <- test_data %>% convert_dates(exclude = "hour", filter_week = TRUE) %>%
+    get_count_data(time_period = "week", region = "community_area",
+                            crime_type = "fbi_code")
+  X_train <- df[, -5]
+  y_train <- df[, 5]
   # Initialise PoissonGAM object
   pg <- PoissonGAM$new(time_period = "week", region = "community_area",
-                       crime_type = "fbi_code", include_nb = TRUE,
-                       filter_week = TRUE)
-  pg$fit(df_train = test_data, convert = TRUE, n_threads = 7)
-  pg$predict()
+                       crime_type = "fbi_code", include_nb = TRUE)
+  pg$fit(X_train, y_train, n_threads = 7)
+  pg$predict(quiet = TRUE)
   # Do the same analysis
   data("community_bounds")
-  nbd_list <- spdep::poly2nb(community_bounds, row.names = community_bounds$community)
-  names(nbd_list) <- attr(nbd_list, "region.id")
-  test_data %<>% convert_dates(exclude = "hour") %>%
-    filter(as.integer(week) < 53) %>%
-    mutate(week = factor(week))
-  count_data <- test_data %>%
-    mutate(community_area = factor(community_area)) %>%
-    count(week, community_area, year, fbi_code) %>%
-    mutate(fbi_code = forcats::fct_relevel(fbi_code, sort)) %>%
-    relocate(community_area, week) %>%
-    arrange(community_area, week, fbi_code)
-  # Expect the count data passed to the models to be equal
-  expect_equal(count_data, pg$count_train)
-  gam_fit <- mgcv::gam(n ~ s(as.numeric(week), bs = "cc") +
-                     s(community_area, bs = "mrf", xt = list(nb = nbd_list)) +
-                     fbi_code,
-                   data = count_data, family = "poisson",
-                   control = gam.control(nthreads = 7))
+  nb_list <- spdep::poly2nb(community_bounds, row.names = community_bounds$community)
+  names(nb_list) <- attr(nb_list, "region.id")
+  gam_fit <- mgcv::gam(n ~ s(as.numeric(week), bs = "cc") + fbi_code +
+                         s(community_area, bs = "mrf", xt = list(nb = nb_list)),
+                       data = count_data, family = "poisson",
+                       control = gam.control(nthreads = 7))
   gam_predict <- predict(gam_fit, type = "response")
   # Expect the fitted model summaries (except formula which will never be equal) to be equal
   expect_equal(summary(gam_fit)[-12], summary(pg$gam_fitted)[-12])
