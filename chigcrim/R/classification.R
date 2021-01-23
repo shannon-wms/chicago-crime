@@ -175,7 +175,7 @@ SupportVectorMachine <- R6Class("SupportVectorMachine", list(
   fit = function(X, y, ...){
     df <- cbind(X, y)
     self$fitted_model <- svm(y ~ ., data = df, kernel = self$kernel,
-                             type = "C-classification", cachesize = 120, ...)
+                             type = "C-classification", cachesize = 7000, ...)
     invisible(self)
   },
 
