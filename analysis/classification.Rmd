@@ -11,12 +11,17 @@ knitr::opts_knit$set(root.dir = paste0(rprojroot::find_rstudio_root_file(), "/ch
 
 ## Imports
 ```{r message=FALSE}
+# Load required libraries
 library(tidyverse)
 library(lubridate)
 library(randomForest)
 library(e1071)
+library(xtable)
+
+# Load package functions
 devtools::load_all("../chigcrim/")
 
+# Use seed to ensure reproducibility
 set.seed(1)
 ```
 
@@ -36,6 +41,8 @@ To assess performance, three metrics will be used, the overall accuracy, the sen
 Note that as logistic regression is a probabilistic classifier, the results are rounded to yield predictions that can be assessed with the metrics above to facilitate the comparison with the support vector machine results.
 
 ```{r}
+# List of metrics used to evaluate classification models
+# These are used by cv_eval function
 metrics <- list(accuracy = classification_accuracy,
                 sensitivity = classification_sensitivity,
                 specificity = classification_specificity)
@@ -71,15 +78,19 @@ Due to computational limitations, only the 2019 data will be considered. Below, 
 
 
 ```{r}
+# Load 2019 data to build classification models
 df <- load_data(year = 2019, strings_as_factors = FALSE)
 
+# Convert rareuly used fbi categories to other
 df$fbi_code <- otherise(df$fbi_code, 500)
 df$location_description <- otherise(df$location_description, 1000)
 
+# List of features for removal, EDA showed not necessary
 remove_features <- c("id", "year", "case_number", "primary_type", "description",
                      "iucr", "updated_on", "latitude", "longitude",
                      "date", "district", "beat", "ward", "block")
 
+# Add more time features
 df <- df %>%
   mutate(day = yday(df$date),
          time = hour(df$date) + minute(df$date)/60) %>%
@@ -97,57 +108,69 @@ head(df)
 
 ### Logistic Regression
 We will first consider a logistic regression classifier. This is a linear classifier. It calls the function `optim()` internally to minimize the cross-entropy/log-loss function using gradient based optimisation methods (here BFGS).
+
 ```{r time_it = TRUE, cache = TRUE}
+# Split into data matrix and response vector
 X <- df %>% select(-arrest)
 y <- df$arrest
 
+# Initialise lr class
 lr <- LogisticRegression$new(solver = "BFGS",
                              control = list(maxit=1000, reltol = 1e-4),
                              round_y_hat = TRUE)
 
-lr_results <- kfold_cv(lr, X, y, metrics, k = 5, n_reps = 3,
-                       parallel = TRUE, n_threads = 3)
+# Find repeated cv error
+lr_results <- kfold_cv(lr, X, y, metrics, k = 5, n_reps = 5,
+                       parallel = TRUE, n_threads = 5)
 
 as_tibble(lr_results)
-
+# Export results for use in report
+xtable(as_tibble(lr_results), digits = 4)
 ```
 
 ### Support Vector Machine
 As the support vector machine allows use of a kernel function, it should be able to capture non-linear relationships in the original feature space (given an appropriate kernel). Here, a radial basis function kernel is used. This implementation is a wrapper of the SVM package `e1071`. Unfortunately, support vector machines do not scale well to large data sets, so here we will only use 20000 rows.
 
 ```{r}
-idxs <- sample(1:nrow(df), 20000)
+idxs <- sample(1:nrow(df), 30000)
 X <- X[idxs, ]
 y <- y[idxs]
 
 svm <- SupportVectorMachine$new(kernel = "radial")
-svm_results <- kfold_cv(svm, X, y, metrics, 5, 3, parallel = FALSE,
-                        n_threads = 5, gamma = 2^-5, cost = 2^4)
-ob <- tune(e1071::svm, y ~ ., data = cbind(X, y),
-           ranges = list(cost = 2^(-2:5),gamma = 2^(-15:-4)),
-           tunecontrol = tune.control(nrepeat = 3,
-                                      sampling = "cross", cross = 5),
-           kernel = "radial", type = "C-classification")
 
-svm_results <- kfold_cv(svm, X, y, metrics, 5, 3, parallel = FALSE,
-                        n_threads = 5, gamma = 2^-5, cost = 2^4)
+# <- tune(e1071::svm, y ~ ., data = cbind(X, y),
+#           ranges = list(cost = 2^(-2:5),gamma = 2^(-15:-4)),
+#          tunecontrol = tune.control(nrepeat = 3,
+#                                    sampling = "cross", cross = 5),
+#        kernel = "radial", type = "C-classification")
 
-as_tibble(svm_results)
+start <- Sys.time()
+svm_results <- kfold_cv(svm, X, y, metrics, 5, 5, parallel = FALSE,
+                        n_threads = 5, gamma = 2^-5, cost = 2^4)
+end <- Sys.time()
+
+# Export results for use in report
+xtable(as_tibble(svm_results), digits = 4)
+
+# Fit to larger subset and predict on full 2019 data
 svm$fit(X, y, gamma = 2^-5, cost = 2^4)
-svm$predict(df)
-svm$predictions
-confusionMatrix(as.factor(svm$predictions), as.factor(df$arrest))
+
 ```
 
 ### Random Forest
-The random forest trains multiple decision trees using a subset of features to create each tree. Decision trees are an ordered set of rules defined on the feature values that attempt to split the data into classes. They have a tendency to overfit, the random forest solves this by growing multiple trees on different features within the dataset. In the classification case a prediction is made by predicting from each decision tree separately and finding the most common predicted class. They are a black-box method but can be useful for prediction. The R6 class used here uses the `randomForest` package internally. Due to the high computational cost involved in fitting random forest models we again use a subset of the data (20000 rows) as we did for the SVM.
+The random forest trains multiple decision trees using a subset of features to create each tree. Decision trees are an ordered set of rules defined on the feature values that attempt to split the data into classes. They have a tendency to overfit, the random forest solves this by growing multiple trees on different features within the dataset. In the classification case a prediction is made by predicting from each decision tree separately and finding the most common predicted class. They are a black-box method but can be useful for prediction. The R6 class used here uses the `randomForest` package internally. Due to the high computational cost involved in fitting random forest models we again use a randomly selected subset of the data (20000 rows) as we did for the SVM.
 
 ```{r}
 X <- select(X, - "community_area")  # Can't handle feature with so many levels.
-rf <- RandomForest$new()
-rf_results <- kfold_cv(rf, X, y, metrics, 5, 3, parallel = TRUE, n_threads = 3)
 
-as_tibble(rf_results)
+# Initialise random forest class
+rf <- RandomForest$new()
+
+rf_results <- kfold_cv(rf, X, y, metrics, 5, 5, parallel = TRUE, n_threads = 5)
+
+# Export results for use in report
+xtable(as_tibble(rf_results), digits = 4)
+
 ```
 
 ## Comparison of models
@@ -157,17 +180,21 @@ Logistic regression had higher sensitivity than the support vector machine, so c
 
 Being an ensemble model, the random forest unsurprisingly performed the best based on all three metrics. It is likely that the random forest could be improved by training on a larger subset of the data and optimising the hyperparameters. The downside of this is that as a black-box method is does not provide any inference as to how the features are used within the model. We are at least able to look at how many times each feature was chosen as a splitting point in all of the trees providing some inference as to the importance of each of the features. 
 
-```{r}
+```{r, warning=FALSE}
+# Fit model with optimal hyper parameters
 rf$fit(X, y)
 
+# get importance of features from model
 imp <- importance(rf$fitted_model)
 imp <- tibble(feature = row.names(imp), mean_decrease_gini = as.vector(imp))
 
-imp %>%
+imp <- imp %>%
   arrange(desc(mean_decrease_gini)) %>%
-  mutate(feature = factor(feature, levels = .$feature)) %>%
-  ggplot(aes(x = feature, y = mean_decrease_gini)) +
-  geom_col()
+  mutate(feature = factor(feature, levels = .$feature))
+
+# Plot importance
+imp_plot <- ggplot(aes(x = feature, y = mean_decrease_gini), data = imp) + geom_col(fill = "steelblue2") + ylab("Mean decrease in Gini")
+ggsave("../plots/rf_imp.pdf", plot = imp_plot, width = 7.5, height = 5)
 ```
 
 We see the most important feature was `fbi_code`, this is somewhat expected as it determines what type of crime occurred and this would intuitively have a large affect in whether someone was arrested. None of the models achieve an accuracy of more than 90%. The availability of more data, such as the demographic background of the suspect, would likely allow for more accurate predictions.
