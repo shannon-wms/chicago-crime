@@ -52,7 +52,7 @@ test_that("PoissonGAM", {
   names(nb_list) <- attr(nb_list, "region.id")
   gam_fit <- mgcv::gam(n ~ s(as.numeric(week), bs = "cc") + fbi_code +
                          s(community_area, bs = "mrf", xt = list(nb = nb_list)),
-                       data = count_data, family = "poisson",
+                       data = df, family = "poisson",
                        control = gam.control(nthreads = 7))
   gam_predict <- predict(gam_fit, type = "response")
   # Expect the fitted model summaries (except formula which will never be equal) to be equal
