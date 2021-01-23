@@ -10,6 +10,7 @@
 #' @import doParallel
 #' @import parallel
 #' @import foreach
+#' @import rlang
 NULL
 
 #' Parse matrix into useful format for ML algorithms
