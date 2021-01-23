@@ -31,10 +31,10 @@ kfold_cv(
 
 \item{parallel}{Whether to compute in parallel.}
 
-\item{n_threads}{The number of parallel threads to use. If NULL, this is}
-
-\item{...}{Additional arguments passed to cv_eval
+\item{n_threads}{The number of parallel threads to use. If NULL, this is
 chosen to be the number of cores minus one.}
+
+\item{...}{Additional arguments passed to cv_eval.}
 }
 \value{
 List of length equal to that of `error_funcs` with each element

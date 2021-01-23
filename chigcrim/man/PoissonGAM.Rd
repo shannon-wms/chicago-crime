@@ -16,21 +16,25 @@ is included, in which case a Markov random field smoother is applied to `region`
 details on model fitting methods, see **mgcv**.
 }
 \examples{
-data <- load_data(2019, na_omit = TRUE)
-test_index <- sample(1:nrow(data), size = nrow(data) \%/\% 10)
-data_train <- data[-test_index, ]
-data_test <- data[test_index, ]
+df <- convert_dates(load_data(2019, na_omit = TRUE), filter_week = TRUE)
+count_df <- get_count_data(df)
+test_index <- sample(1:nrow(count_df), size = nrow(count_df) \%/\% 10)
+X_train <- count_df[-test_index, 1:3]
+y_train <- count_df[-test_index, 4]
+X_test <- count_df[test_index, 1:3]
 pg <- PoissonGAM$new(time_period = "week", region = "community_area",
-                     crime_type = NULL, include_nb = FALSE, filter_week = TRUE)
-pg$fit(df_train = data_train, convert = TRUE, n_threads = 1)
-pred <- pg$predict(df_test = data_test, convert = TRUE)
+                     crime_type = NULL, include_nb = FALSE)
+pg$fit(X_train, y_train, n_threads = 1)
+pred <- pg$predict(X_test)
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{df_train}}{The training dataset.}
+\item{\code{X_train}}{The training data matrix.}
 
-\item{\code{df_test}}{The test dataset.}
+\item{\code{X_test}}{The test data matrix.}
+
+\item{\code{y_train}}{The training response vector.}
 
 \item{\code{time_period}}{Specifies the time period: must be one of "days", "weeks" or
 "months".}
@@ -44,18 +48,7 @@ this will not be included in the model.}
 \item{\code{include_nb}}{If "community_area" is the specified region, whether to include a 
 neighbourhood list and then use a Markov random field smoother for fitting.}
 
-\item{\code{filter_week}}{If using weeks, whether to filter out week 53, as it
-typically has fewer than 7 days and can lead to spurious results.}
-
-\item{\code{n_threads}}{Number of threads to use when fitting the GAM in parallel.}
-
 \item{\code{nb_list}}{Neighbourhood list for the community areas.}
-
-\item{\code{count_train}}{Count data for the training dataset, grouped by the specified
-time period, region, and (optional) crime type.}
-
-\item{\code{count_test}}{Count data for the test dataset, grouped by the specified time
-period, region, and (optional) crime type.}
 
 \item{\code{gam_fitted}}{The GAM, fitted using package **mgcv**.}
 
@@ -84,8 +77,7 @@ Create new PoissonGAM object.
   time_period = "week",
   region = "community_area",
   crime_type = NULL,
-  include_nb = FALSE,
-  filter_week = TRUE
+  include_nb = FALSE
 )}\if{html}{\out{</div>}}
 }
 
@@ -115,21 +107,23 @@ and hence whether to use a Markov random field smoother for the region.}
 \subsection{Method \code{fit()}}{
 Function for fitting a GAM to the training dataset.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PoissonGAM$fit(df_train, convert = FALSE, n_threads = 1, ...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{PoissonGAM$fit(X_train, y_train, n_threads = 1, ...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{df_train}}{The training dataset.}
+\item{\code{X_train}}{The training dataset.}
 
-\item{\code{convert}}{Whether the column `date` should be converted to instants
-or they are already present.}
+\item{\code{y_train}}{The training response vector.}
 
 \item{\code{n_threads}}{The number of threads to use for parallel smoothing
 parameter selection methods in `gam`.}
 
 \item{\code{...}}{Additional arguments to be passed to `gam`.}
+
+\item{\code{convert}}{Whether the column `date` should be converted to instants
+or they are already present.}
 }
 \if{html}{\out{</div>}}
 }
@@ -140,23 +134,25 @@ parameter selection methods in `gam`.}
 \subsection{Method \code{predict()}}{
 Prediction for a new dataset
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PoissonGAM$predict(df_test = NULL, convert = FALSE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{PoissonGAM$predict(X_test = NULL, convert = FALSE, quiet = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{df_test}}{The training dataset.}
+\item{\code{X_test}}{The test data matrix.}
 
 \item{\code{convert}}{Whether the column `date` should be converted to instants
 or they are already present.}
+
+\item{\code{quiet}}{If TRUE, the function will not return the predicted values and
+will only update the object.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
 Vector of predicted values.
 Check parameters are defined properly
-Aggregate given dataset into count data.
 Construct a neighbourhood list for community areas
 }
 }

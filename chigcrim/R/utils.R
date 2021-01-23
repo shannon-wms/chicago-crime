@@ -38,7 +38,6 @@ parse_X <- function(X){
   X
 }
 
-
 #' Download Chicago Crime data using Socrata API
 #'
 #' @description
@@ -108,8 +107,6 @@ load_data <- function(year = NULL, strings_as_factors = TRUE,
   return(df)
 }
 
-
-
 #' Convert less common strings to other.
 #'
 #' @param string_vec Vector of strings.
@@ -131,8 +128,6 @@ otherise <- function(string_vec, n_threshold, print_summary = TRUE){
   string_vec
 }
 
-
-
 #' yday float
 #'
 #' Convert timestamp to float in 1-366
@@ -144,8 +139,6 @@ otherise <- function(string_vec, n_threshold, print_summary = TRUE){
 yday_float = function(timestamp){
   yday(timestamp) + hour(timestamp)/24 + minute(timestamp)/(24*60)
 }
-
-
 
 #' Indexed cross-validation for R6 class
 #'
@@ -184,8 +177,8 @@ cv_eval <- function(object, X, y, error, index, ...){
 #' @param n_reps Number of repeats.
 #' @param parallel Whether to compute in parallel.
 #' @param n_threads The number of parallel threads to use. If NULL, this is
-#' @param ... Additional arguments passed to cv_eval
 #' chosen to be the number of cores minus one.
+#' @param ... Additional arguments passed to cv_eval.
 #' @return List of length equal to that of `error_funcs` with each element
 #' containing a vector of length `n_reps` corresponding to the mean error
 #' averaged over `k` folds.
@@ -251,9 +244,12 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000,
 #' @param as_factors Whether to convert `month`, `week`, `day` and `hour`
 #' into factors.
 #' @param exclude Specifies which instants to exclude from data frame returned.
+#' @param filter_week Whether to filter out weeks > 53, as they  usually have <7 days
+#' and can lead to spurious results.
 #' @return Data frame `df` with entries of `date_col` converted into instants.
 #' @export
-convert_dates <- function(df, date_col = "date", as_factors = TRUE, exclude = NULL) {
+convert_dates <- function(df, date_col = "date", as_factors = TRUE, 
+                          exclude = NULL, filter_week = FALSE) {
   if (as_factors) { # Convert columns to factors
     df %<>%
       mutate(month = factor(month(get(date_col))),
@@ -280,5 +276,42 @@ convert_dates <- function(df, date_col = "date", as_factors = TRUE, exclude = NU
              "month", "week", "day", "hour", "yday", "date".')
     } else df <- df[, !names(df) %in% exclude]
   }
+  # Filter out weeks > 53 if required
+  if (!("week" %in% exclude) && filter_week) {
+    df %<>% filter(as.integer(week) < 53) %>% mutate(week = factor(week))
+  }
   return(df)
+}
+
+#' Aggregate given dataset into count data.
+#' 
+#' @param df Dataset with columns corresponding to `time_period`, `region` and
+#' `crime_type` (if desired), as well as an additional column `year`.
+#' @param time_period The time period over which to aggregate.
+#' @param region The region over which to aggregate.
+#' @param crime_type The crime type over which to aggregate, if desired.
+#' @return Data frame `count_data` containing count data aggregated over the desired groups.
+#' @export
+get_count_data = function(df, time_period = "week", region = "community_area", 
+                          crime_type = NULL) {
+  # Crime type data included
+  if (!is.null(crime_type)) {
+    count_data <- df %>%
+      mutate(!!eval(region) := factor(get(region))) %>%
+      count(get(region), get(time_period), 
+            year, get(crime_type)) %>%
+      rename(!!eval(time_period) := `get(time_period)`,
+             !!eval(region) := `get(region)`,
+             !!eval(crime_type) := `get(crime_type)`) %>%
+      mutate(!!eval(crime_type) := fct_relevel(get(crime_type), sort)) %>%
+      arrange(get(region), get(time_period), get(crime_type), year)
+  } else { # Crime type data not included
+    count_data <- df %>%
+      mutate(!!eval(region) := factor(get(region))) %>%
+      count(get(region), get(time_period), year) %>%
+      rename(!!eval(time_period) := `get(time_period)`,
+             !!eval(region) := `get(region)`) %>%
+      arrange(get(time_period), get(region), year)
+  }
+  return(count_data)
 }

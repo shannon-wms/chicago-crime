@@ -49,8 +49,6 @@ pre-computed component of the prediction function.}
 
 \item{\code{X_test}}{Testing X matrix.}
 
-\item{\code{y_test}}{Testing y vector.}
-
 \item{\code{predictions}}{The predicted values.}
 }
 \if{html}{\out{</div>}}
@@ -91,7 +89,7 @@ Create new KernelRidge object.
 \if{html}{\out{<a id="method-fit"></a>}}
 \if{latex}{\out{\hypertarget{method-fit}{}}}
 \subsection{Method \code{fit()}}{
-Fits the big K matrix. n by n matrix of kernel evaluations on X_train.
+Fits the Gram matrix, an n*n matrix of kernel evaluations on X_train.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{KernelRidge$fit(X_train, y_train)}\if{html}{\out{</div>}}
 }
