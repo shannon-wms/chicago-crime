@@ -12,7 +12,8 @@ kfold_cv(
   k,
   n_reps = 1000,
   parallel = FALSE,
-  n_threads = NULL
+  n_threads = NULL,
+  ...
 )
 }
 \arguments{
@@ -30,7 +31,9 @@ kfold_cv(
 
 \item{parallel}{Whether to compute in parallel.}
 
-\item{n_threads}{The number of parallel threads to use. If NULL, this is
+\item{n_threads}{The number of parallel threads to use. If NULL, this is}
+
+\item{...}{Additional arguments passed to cv_eval
 chosen to be the number of cores minus one.}
 }
 \value{

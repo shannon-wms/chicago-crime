@@ -1,4 +1,5 @@
 # Script contains useful general purpose utility functions
+#' @importFrom stats na.omit
 #' @importFrom data.table as.data.table
 #' @importFrom mltools one_hot
 #' @importFrom RSocrata read.socrata
@@ -156,7 +157,7 @@ yday_float = function(timestamp){
 #' @param y Vector of observations.
 #' @param error Function to assess error.
 #' @param index Vector of indexes corresponding to test data.
-#'
+#' @param ... Additional arguments passed to fit
 #' @return Test error.
 #' @export
 cv_eval <- function(object, X, y, error, index, ...){
@@ -183,12 +184,13 @@ cv_eval <- function(object, X, y, error, index, ...){
 #' @param n_reps Number of repeats.
 #' @param parallel Whether to compute in parallel.
 #' @param n_threads The number of parallel threads to use. If NULL, this is
+#' @param ... Additional arguments passed to cv_eval
 #' chosen to be the number of cores minus one.
 #' @return List of length equal to that of `error_funcs` with each element
 #' containing a vector of length `n_reps` corresponding to the mean error
 #' averaged over `k` folds.
 #' @export
-kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000, 
+kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000,
                      parallel = FALSE, n_threads = NULL, ...) {
   n <- nrow(X)
   m <- length(error_funcs)
@@ -258,7 +260,8 @@ convert_dates <- function(df, date_col = "date", as_factors = TRUE, exclude = NU
              week = factor(week(get(date_col))),
              day = factor(day(get(date_col))),
              hour = factor(hour(get(date_col))),
-             yday = yday(get(date_col)),
+             yday = as.integer(yday(get(date_col))),
+             wday = as.integer(wday(get(date_col))),
              date = date(get(date_col)))
   } else { # No factors
     df %<>%
@@ -266,7 +269,8 @@ convert_dates <- function(df, date_col = "date", as_factors = TRUE, exclude = NU
              week = week(get(date_col)),
              day = day(get(date_col)),
              hour = hour(get(date_col)),
-             yday = yday(get(date_col)),
+             yday = as.integer(yday(get(date_col))),
+             wday = as.integer(wday(get(date_col))),
              date = date(get(date_col)))
   }
   # Remove specified rows to exclude
