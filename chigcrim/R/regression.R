@@ -110,7 +110,7 @@ KernelRidge <- R6Class("KernelRidge", public = list(
     return(self$predictions)
   }
 ), private = list(
-  # Checks arguments are defined correctly
+  #' Checks arguments are defined correctly
   check_params = function(){
     stopifnot(self$kernel %in% c("linear", "polynomial", "rbf"))
     if (self$kernel == "linear" & (length(self$A) != 0 | length(self$B) != 0)){
@@ -309,6 +309,7 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
     self$gam_fitted <- gam(f, data = private$df_train, family = "poisson",
                            control = ctrl, ...)
     self$fit_summary <- summary(self$gam_fitted)
+    invisible(self)
   },
   #' @description
   #' Prediction for a new dataset

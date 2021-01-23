@@ -3,31 +3,32 @@
 #' @importFrom R6 R6Class
 #' @importFrom e1071 svm
 #' @import ggplot2
+#' @importFrom randomForest randomForest
 NULL
 
 #' Sigmoid function
 #'
-#' Computes sigmoid function using 1/(1 + exp(-z)).
+#' Computes value of sigmoid function at `z`.
 #'
 #' @param z numeric Log ratio estimate.
 #' @return float
 #' @export
 #' @examples sigmoid(0)
-sigmoid <- function(z){
-  1/(1 + exp(-z))
-}
+sigmoid <- function(z) 1 / (1 + exp(-z))
 
 #' Logistic Regression.
 #'
 #' @description R6 class for Logistic Regression
 #'
-#' @field lambda Regularisation parameter (default=0).
-#' @field solver "BFGS", "CG" or "L-BFGS-B".
-#' @field X Training X (dataframe or matrix).
-#' @field y Training y vector.
-#' @field theta The fitted parameters.
-#' @field control List of control parameters to be passed to optim control.
-#' @field round_y_hat Logical, whether to round predicted values to 0 and 1.
+#' @field lambda Regularisation parameter (default = 0).
+#' @field solver Solver to use in `optim`: one of "BFGS", "CG" or "L-BFGS-B".
+#' @field X_train Training data matrix.
+#' @field y_train Training response vector.
+#' @field X_test Test data matrix.
+#' @field theta The fitted parameters of the logistic regression model.
+#' @field control List of control parameters to be passed to `optim`` control.
+#' @field rounding Logical, whether to round predicted values to 0 and 1.
+#' @field predictions The predicted values for `X_test`.
 #' @export
 #' @examples
 #' X <- subset(mtcars, select = c("mpg", "wt"))
@@ -35,113 +36,91 @@ sigmoid <- function(z){
 #' lr <- LogisticRegression$new()
 #' lr$fit(X, y)
 #' lr$predict(X)
-LogisticRegression <- R6Class("LogisticRegression", list(
-  lambda = NULL,
-  solver = NULL,
-  X = NULL,
-  y = NULL,
-  theta = NULL,
-  control = NULL,
-  round_y_hat = NULL,
+LogisticRegression <- R6Class("LogisticRegression", public = list(
+  lambda = "numeric",
+  solver = "character",
+  X_train = "matrix",
+  y_train = "vector",
+  X_test = "matrix",
+  theta = "vector",
+  control = "list",
+  rounding = "logical",
+  predictions = "vector",
 
   #' @description
-  #' Create new LogisticRegression object.
-  #' @param solver "L-BFGS-B", "BFGS" or "CG". Default "L-BFGS-B".
+  #' Create new `LogisticRegression` object.
+  #' @param solver `"L-BFGS-B"`, `"BFGS"` or `"CG"`. Default is `"L-BFGS-B"`.
   #' @param lambda Regularisation parameter, defualt 0.
-  #' @param control List passed to optim control.
-  #' @param round_y_hat Whether to round predictions.
+  #' @param control List of control parameters to be passed to `optim` control.
+  #' @param rounding Whether to round predicted values.
   initialize = function(solver = "L-BFGS-B", lambda = 0,
-                        control = NULL, round_y_hat = FALSE){
+                        control = NULL, rounding = FALSE){
     stopifnot(solver %in% c("BFGS", "CG", "L-BFGS-B"))
     stopifnot(lambda >= 0)
-    stopifnot(is.logical(round_y_hat))
+    stopifnot(is.logical(rounding))
 
     self$lambda <- lambda
     self$solver <- solver
     self$control <- control
-    self$round_y_hat <- round_y_hat
+    self$rounding <- rounding
   },
-
-  #' @description
-  #' Computes log loss (with regularisation). Assumes one-hot-encoded
-  #' categorical variables and bias term in X.
-  #' @param theta Coefficients.
-  #' @param X matrix with first column as bias.
-  #' @param y 0,1 vector.
-  log_loss = function(theta, X, y){
-    n <- length(y)
-    y_hat <- sigmoid(X %*% theta)
-    y_hat[which(y_hat == 1)] <- y_hat[which(y_hat == 1)] - 1e-15  # Fix numerical precision errors
-    cost <- -1/n * sum((y*log(y_hat) + (1-y)*log(1-y_hat)))
-    reg <- self$lambda/2 * sum(theta[-1]^2)
-    cost + reg
-  },
-
-  #' @description
-  #' Computes the gradient of the log loss function (with regularisation).
-  #' Assumes one-hot-encoded categorical variables and bias term in X.
-  #' @param theta Coefficients.
-  #' @param X matrix with first column as bias.
-  #' @param y 0,1 Vector.
-  grad_log_loss = function(theta, X, y){
-    n <- length(y)
-    y_hat <- sigmoid(X %*% theta)
-    1/n * (t(X) %*% (y_hat - y)) + c(0, self$lambda * theta[-1])
-  },
-
+  
   #' @description
   #' Fit the object to training data X and y.
   #' @param X Training data (dataframe or matrix).
   #' @param y Training data (vector).
   #' @param ... Additional arguments passed to optim.
   fit = function(X, y, ...){
-    X <- parse_X(X)
-    self$X <- X
-    self$y <- y
-    bias <- 1
-    X <- cbind(bias, X)
+    self$X_train <- parse_X(X)
+    self$y_train <- y
+    # Add bias term to data matrix for fitting
+    X <- cbind(bias = 1, self$X_train)
+    # Initialise solution
     init_theta <- rep(0, ncol(X))
-
-    optim_res <- optim(
-      init_theta, fn = self$log_loss, gr = self$grad_log_loss,
-      method = self$solver, X = X, y = y, control = self$control, ...
-      )
-
-    if (optim_res$convergence == 1){
-      warning("The algorithm did not converge.")
-    }
+    optim_res <- optim(init_theta, fn = private$log_loss, gr = private$grad_log_loss,
+                       method = self$solver, X = X, y = self$y_train, 
+                       control = self$control, ...)
+    if (optim_res$convergence == 1) warning("The algorithm did not converge.")
+    # Obtain logistic regression parameters
     theta <- optim_res$par
     names(theta) <- colnames(X)
     self$theta <- theta
-
     invisible(self)
   },
 
   #' @description
   #' Predict on X.
   #' @param X X training or testing X.
-  predict = function(X){
-    bias <- 1
-    X <- cbind(bias, parse_X(X))
+  #' @param quiet If TRUE, the function will not return the predicted values and
+  #' will only update the object.
+  predict = function(X, quiet = FALSE) {
+    self$X_test <- parse_X(X)
+    X <- cbind(bias = 1, self$X_test)
     predictions <- as.vector(sigmoid(X %*% self$theta))
     names(predictions) <- rownames(X)
-    if (self$round_y_hat){
-      predictions <- round(predictions)
-    }
-    predictions
+    if (self$rounding) predictions <- round(predictions)
+    self$predictions <- predictions
+    if (!quiet) return(self$predictions)
+  }
+), private = list(
+  #' Computes log loss (with regularisation). Assumes one-hot-encoded
+  #' categorical variables and bias term in X.
+  log_loss = function(theta, X, y) {
+    n <- length(y)
+    y_hat <- sigmoid(X %*% theta)
+    y_hat[which(y_hat == 1)] <- y_hat[which(y_hat == 1)] - 1e-15  # Fix numerical precision errors
+    cost <- - (1 / n) * sum((y * log(y_hat) + (1 - y) * log(1 - y_hat)))
+    reg <- (self$lambda / 2) * sum(theta[-1]^2)
+    return(cost + reg)
   },
-
-  #' @description
-  #' Print LogisticRegression object.
-  #' @param ... Additional arguments passed to print.
-  print = function(...) {
-    cat("LogisticRegression: \n")
-    cat("  head(X) = ", head(self$X, 1), "\n", sep = " ")
-    cat("  head(y) = ", head(self$y, 1), "\n", sep = " ")
-    cat("  solver = ", self$solver, "\n", sep = " ")
-    cat("  lambda = ", self$lambda, "\n", sep = " ")
-    cat("  theta = ", self$theta, "\n", sep = " ")
-    invisible(self)
+  
+  #' Computes the gradient of the log loss function (with regularisation).
+  #' Assumes one-hot-encoded categorical variables and bias term in X.
+  grad_log_loss = function(theta, X, y) {
+    n <- length(y)
+    y_hat <- sigmoid(X %*% theta)
+    grad <- (1 / n) * (t(X) %*% (y_hat - y)) + c(0, self$lambda * theta[-1])
+    return(grad)
   }
 ))
 
@@ -151,28 +130,38 @@ LogisticRegression <- R6Class("LogisticRegression", list(
 #' @description
 #' R6 class wrapper for support vector machine implementation from **e1071** package.
 #'
-#' @field kernel Kernel function to use (as in svm documentation)
+#' @field kernel Kernel function to use: one of `"radial"`, `"linear"`, `"polynomial"`
+#' or `"sigmoid"`.
+#' @field X_train Training data matrix.
+#' @field y_train Training response vector.
+#' @field X_test Test data matrix. 
 #' @field fitted_model `svm` object representing the fitted model.
-#' @field predictions Predicted values of given test dataset.
+#' @field predictions Vector of predicted response values for the test dataset.
 #' @export
-SupportVectorMachine <- R6Class("SupportVectorMachine", list(
-  kernel = NULL,
-  fitted_model = NULL,
-  predictions = NULL,
+SupportVectorMachine <- R6Class("SupportVectorMachine", public = list(
+  kernel = "character",
+  X_train = "matrix",
+  y_train = "vector",
+  X_test = "matrix",
+  fitted_model = "list",
+  predictions = "vector",
 
   #' @description
-  #' Create new SVM object.
+  #' Create new SupportVectorMachine object.
   #' @param kernel Kernel function to use.
   initialize = function(kernel = "radial"){
+    stopifnot(kernel %in% c("radial", "linear", "polynomial", "sigmoid"))
     self$kernel <- kernel
   },
 
   #' @description
-  #' Fit the object to training data X and y.
-  #' @param X Training data (dataframe or matrix).
-  #' @param y Training data (vector).
+  #' Fit the object to training data `X` and `y` via `svm` from **optim**.
+  #' @param X Training data matrix.
+  #' @param y Training response vector.
   #' @param ... Additional arguments to be passed to `svm`.
   fit = function(X, y, ...){
+    self$X_train <- X
+    self$y_train <- y
     df <- cbind(X, y)
     self$fitted_model <- svm(y ~ ., data = df, kernel = self$kernel,
                              type = "C-classification", cachesize = 120, ...)
@@ -181,70 +170,93 @@ SupportVectorMachine <- R6Class("SupportVectorMachine", list(
 
   #' @description
   #' Predict on X.
-  #' @param X X training or testing X.
-  predict = function(X){
-    self$predictions <- predict(self$fitted_model, newdata = X)
-    as.logical(self$predictions)
+  #' @param X Test data matrix.
+  #' @param logical Whether to store the predictions as logical values.
+  #' @param quiet If TRUE, the function will not return the predicted values and
+  #' will only update the object.
+  predict = function(X, logical = TRUE, quiet = FALSE) {
+    self$X_test <- X
+    predictions <- predict(self$fitted_model, newdata = X)
+    if (logical) self$predictions <- as.logical(predictions)
+    else self$predictions <- predictions
+    if(!quiet) return(self$predictions)
   }
 ))
 
 
 #' Random forest
 #' R6 class wrapper for random forest. Uses randomForest package.
-#'
+#' 
+#' @field X_train Training data matrix.
+#' @field y_train Training response vector.
+#' @field X_test Test data matrix. 
 #' @field fitted_model Fitted randomForest object.
 #' @field predictions Predicted response values for test dataset.
 #' @export
 RandomForest <- R6Class("RandomForest", list(
-  fitted_model = NULL,
-  predictions = NULL,
+  X_train = "matrix",
+  y_train = "vector",
+  X_test = "matrix",
+  fitted_model = "list",
+  predictions = "vector",
   #' @description
-  #' Create new randomForest object.
+  #' Create new RandomForest object.
   initialize = function() {
   },
 
   #' @description
   #' Fit the object to training data X and y.
-  #' @param X Training dataset (as a dataframe or matrix).
-  #' @param y Training dataset (as vector).
-  #' @param ... Additional arguments to bepassed to randomForest.
+  #' @param X Training data matrix.
+  #' @param y Training response vector.
+  #' @param ... Additional arguments to be passed to `randomForest`.
   fit = function(X, y, ...) {
-    library(randomForest)
-    df <- cbind(X, y)
-    self$fitted_model <- randomForest(X, y = as.factor(y))
+    self$X_train <- X
+    self$y_train <- y
+    self$fitted_model <- randomForest(self$X_train, y = as.factor(self$y_train))
     invisible(self)
   },
 
   #' @description
   #' Predict on X.
-  #' @param X Training or test data matrix.
-  predict = function(X) {
-    self$predictions <- predict(self$fitted_model, newdata = X)
-    as.logical(self$predictions)
+  #' @param X Test data matrix.
+  #' @param logical Whether to return the predictions as logical values.
+  #' @param quiet If TRUE, the function will not return the predicted values and
+  #' will only update the object.
+  #' @return vector Vector of predicted values.
+  predict = function(X, logical = TRUE, quiet = FALSE) {
+    self$X_test <- X
+    predictions <- predict(self$fitted_model, newdata = X)
+    if (logical) self$predictions <- as.logical(predictions)
+    else self$predictions <- predictions
+    if (!quiet) return(self$predictions)
   }
 ))
 
 #' Accuracy
-#' Calculates the proportion of correctly classified predictions.
-#' @param y_hat 0 1 vector of predictions.
-#' @param y_test 0 1 vector of observations.
+#' 
+#' @description
+#' Computes the proportion of correctly classified predictions.
+#' @param y_hat Binary vector of predictions.
+#' @param y_test Binary vector of observations.
 #'
-#' @return float proportion of correct predictions
+#' @return float Proportion of correct predictions
 #' @export
 #'
 #' @examples
-#' classification_accuracy(c(0,1,0), c(0,1,1))
+#' classification_accuracy(c(0, 1, 0), c(0, 1, 1))
 classification_accuracy <- function(y_hat, y_test){
-  sum(y_hat == y_test)/length(y_hat)
+  sum(y_hat == y_test) / length(y_hat)
 }
 
 #' Sensitivity
+#' 
+#' @description
 #' Calculates the sensitivity (proportion of positives correctly identified).
 #'
 #' @param y_hat Binary vector of predictions.
 #' @param y_test Binary vector of observations.
 #'
-#' @return Float point sensitivity.
+#' @return float Sensitivity.
 #' @export
 #'
 #' @examples
@@ -254,12 +266,14 @@ classification_sensitivity <- function(y_hat, y_test){
 }
 
 #' Specificity
+#' 
+#' @description
 #' Calculates the specificity (proportion of negatives correctly identified).
 #'
 #' @param y_hat Binary vector of predictions.
 #' @param y_test Binary vector of observations.
 #'
-#' @return Floating point specificity.
+#' @return float Specificity
 #' @export
 #'
 #' @examples
