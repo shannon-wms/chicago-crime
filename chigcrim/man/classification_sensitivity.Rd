@@ -2,23 +2,21 @@
 % Please edit documentation in R/classification.R
 \name{classification_sensitivity}
 \alias{classification_sensitivity}
-\title{Sensitivity
-Calculates the sensitivity (proportion of positives correctly identified).}
+\title{Sensitivity}
 \usage{
 classification_sensitivity(y_hat, y_test)
 }
 \arguments{
-\item{y_hat}{0 1 vector of predictions.}
+\item{y_hat}{Binary vector of predictions.}
 
-\item{y_test}{0 1 vector of observations.}
+\item{y_test}{Binary vector of observations.}
 }
 \value{
-float sensitivity
+float Sensitivity.
 }
 \description{
-Sensitivity
 Calculates the sensitivity (proportion of positives correctly identified).
 }
 \examples{
-classification_sensitivity(c(0,1,0), c(0,1,1))
+classification_sensitivity(c(0, 1, 0), c(0, 1, 1))
 }

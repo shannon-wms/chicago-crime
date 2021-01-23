@@ -14,6 +14,12 @@ R6 class wrapper for random forest. Uses randomForest package.
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
+\item{\code{X_train}}{Training data matrix.}
+
+\item{\code{y_train}}{Training response vector.}
+
+\item{\code{X_test}}{Test data matrix.}
+
 \item{\code{fitted_model}}{Fitted randomForest object.}
 
 \item{\code{predictions}}{Predicted response values for test dataset.}
@@ -33,7 +39,7 @@ R6 class wrapper for random forest. Uses randomForest package.
 \if{html}{\out{<a id="method-new"></a>}}
 \if{latex}{\out{\hypertarget{method-new}{}}}
 \subsection{Method \code{new()}}{
-Create new randomForest object.
+Create new RandomForest object.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{RandomForest$new()}\if{html}{\out{</div>}}
 }
@@ -51,11 +57,11 @@ Fit the object to training data X and y.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{X}}{Training dataset (as a dataframe or matrix).}
+\item{\code{X}}{Training data matrix.}
 
-\item{\code{y}}{Training dataset (as vector).}
+\item{\code{y}}{Training response vector.}
 
-\item{\code{...}}{Additional arguments to bepassed to randomForest.}
+\item{\code{...}}{Additional arguments to be passed to `randomForest`.}
 }
 \if{html}{\out{</div>}}
 }
@@ -66,15 +72,23 @@ Fit the object to training data X and y.
 \subsection{Method \code{predict()}}{
 Predict on X.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{RandomForest$predict(X)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{RandomForest$predict(X, logical = TRUE, quiet = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{X}}{Training or test data matrix.}
+\item{\code{X}}{Test data matrix.}
+
+\item{\code{logical}}{Whether to return the predictions as logical values.}
+
+\item{\code{quiet}}{If TRUE, the function will not return the predicted values and
+will only update the object.}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+vector Vector of predicted values.
 }
 }
 \if{html}{\out{<hr>}}

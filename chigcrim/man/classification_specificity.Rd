@@ -2,23 +2,21 @@
 % Please edit documentation in R/classification.R
 \name{classification_specificity}
 \alias{classification_specificity}
-\title{Specificity
-Calculates the specificity (proportion of negatives correctly identified).}
+\title{Specificity}
 \usage{
 classification_specificity(y_hat, y_test)
 }
 \arguments{
-\item{y_hat}{0 1 vector of predictions.}
+\item{y_hat}{Binary vector of predictions.}
 
-\item{y_test}{0 1 vector of observations.}
+\item{y_test}{Binary vector of observations.}
 }
 \value{
-float specificity.
+float Specificity
 }
 \description{
-Specificity
 Calculates the specificity (proportion of negatives correctly identified).
 }
 \examples{
-classification_specificity(c(0,1,0), c(0,1,1))
+classification_specificity(c(0, 1, 0), c(0, 1, 1))
 }
