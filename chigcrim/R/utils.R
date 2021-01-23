@@ -14,28 +14,27 @@ NULL
 
 #' Parse matrix into useful format for ML algorithms
 #'
+#' @description
 #' If a matrix is passed, function checks that it is not a character matrix.
 #' If a data frame is passed, the function similarly checks the types, and
-#' one hot encodes factors.
+#' one-hot encodes factors.
 #'
-#' @param X matrix or data.frame
-#' @return matrix
+#' @param X Matrix or data.frame.
+#' @return Matrix with one-hot encoding.
 #' @export
 parse_X <- function(X){
-  if (is.matrix(X) & (typeof(X) == "character")) {
+  if (is.matrix(X) && typeof(X) == "character") {
     stop("The type of the matrix should not be character")
   }
   if (inherits(X, "data.frame")){
-    dtypes <- sapply(X, typeof)
-    allowed_types <- c("factor", "integer", "logical", "double")
-    stopifnot(all(dtypes %in% allowed_types))
-    is_factor <- sapply(X, is.factor)
-    if (any(is_factor)){
+    # Check types of X are allowed
+    stopifnot(all(sapply(X, typeof) %in% c("factor", "integer", "logical", "double")))
+    if (any(sapply(X, is.factor))){
+      # One-hot encode X if it includes factors
       X <- one_hot(as.data.table(X))
     }
   }
-  X <- as.matrix(X)
-  X
+  return(as.matrix(X))
 }
 
 #' Download Chicago Crime data using Socrata API
@@ -43,6 +42,7 @@ parse_X <- function(X){
 #' @description
 #' Returns a data frame of Chicago Crime data from specified year or range of years,
 #' or returns entire dataset from 2001 to present if no years are specified.
+#' 
 #' @param year integer in 2001:2021 specifying the desired year, or two integers
 #' specifying endpoints to filter between.
 #' @param strings_as_factors Whether to convert `iucr`, `primary_type`,
@@ -51,18 +51,18 @@ parse_X <- function(X){
 #' and longitude.
 #' @param na_omit Whether to omit observations with NA values.
 #' @param limit Limit set on how many rows of data to obtain.
+#' @param ... Additional arguments to be passed to `read.socrata`.
 #' @return tibble data frame of Chicago Crime data.
 #' @export
-load_data <- function(year = NULL, strings_as_factors = TRUE,
-                      drop_location = TRUE, na_omit = FALSE, limit = NULL) {
-
+load_data <- function(year = NULL, strings_as_factors = TRUE, drop_location = TRUE, 
+                      na_omit = FALSE, limit = NULL, ...) {
   # Only accept NULL or valid years
   if (!is.null(year)) {
     if (!all(year %in% 2001:2021)) {
-      return("Please choose a year(s) between 2001 and 2021.")
+      stop("Please choose a year, or two years, between 2001 and 2021.")
     }
     if (length(year) > 2) {
-      return("Please choose either one year or upper and lower values.")
+      stop("Please choose either one year or two values to filter between.")
     }
   }
   base_url <- "https://data.cityofchicago.org/resource/ijzp-q8t2.csv"
@@ -76,8 +76,9 @@ load_data <- function(year = NULL, strings_as_factors = TRUE,
     year <- as.character(year)
     full_url <- paste0(base_url, "?year=", year)
   }
+  # If limit specified, check it is numeric
   if (!is.null(limit)) {
-    if(is.na(as.numeric(limit))) return("Limit must be numeric.")
+    if(is.na(as.numeric(limit))) stop("Limit must be numeric.")
     else { # Convert limit to a character integer
       limit %<>% as.integer() %>% as.character()
       # Add limit query to URL
@@ -85,8 +86,8 @@ load_data <- function(year = NULL, strings_as_factors = TRUE,
                             "limit=", limit)
     }
   }
-  # Pull the data
-  df <- read.socrata(full_url, app_token = "avsRhaZaZTqeJOGhBuFJieRzJ") %>% tibble()
+  # Pull the data and convert to tibble
+  df <- read.socrata(full_url, app_token = "avsRhaZaZTqeJOGhBuFJieRzJ", ...) %>% tibble()
   # Omit observations with NA values
   if (na_omit) df %<>% na.omit()
   # Convert dots in column names to underscore
@@ -107,37 +108,39 @@ load_data <- function(year = NULL, strings_as_factors = TRUE,
   return(df)
 }
 
-#' Convert less common strings to other.
+#' Convert less common strings to "OTHER", to be used when `primary_type` or
+#' `description` is used from the Chicago Crime dataset.
 #'
 #' @param string_vec Vector of strings.
 #' @param n_threshold Threshold count below which will be converted to other.
 #' @param print_summary Prints a summary of operation performed.
 #'
-#' @return vector of strings
+#' @return Vector of strings with the least common strings as "OTHER".
 #' @export
 otherise <- function(string_vec, n_threshold, print_summary = TRUE){
   counts <- table(string_vec)
   other_names <- names(counts[counts < n_threshold])
   string_vec[string_vec %in% other_names] <- "OTHER"
   if (print_summary){
-    print(paste(length(other_names), "out of", length(counts),
-                "categories were converted to OTHER corresponding to",
-                100*length(string_vec[string_vec == "OTHER"])/length(string_vec),
+    print(paste0(length(other_names), " out of ", length(counts),
+                " categories were converted to OTHER corresponding to ",
+                100 * length(string_vec[string_vec == "OTHER"]) / length(string_vec),
                 "% of observations"))
   }
-  string_vec
+  return(string_vec)
 }
 
 #' yday float
 #'
-#' Convert timestamp to float in 1-366
+#' @description
+#' Convert timestamp to floating point number between 1 and 366 representing day of year.
 #' @param timestamp Date in POSIXct
 #'
-#' @return Floating point numbers
+#' @return Floating point numbers between 1 and 366.
 #' @export
 #'
 yday_float = function(timestamp){
-  yday(timestamp) + hour(timestamp)/24 + minute(timestamp)/(24*60)
+  yday(timestamp) + hour(timestamp) / 24 + minute(timestamp) / (24 * 60)
 }
 
 #' Indexed cross-validation for R6 class
@@ -148,23 +151,26 @@ yday_float = function(timestamp){
 #' @param object R6 class with fit and predict methods.
 #' @param X Data matrix
 #' @param y Vector of observations.
-#' @param error Function to assess error.
+#' @param error_funcs List of functions to compute test errors.
 #' @param index Vector of indexes corresponding to test data.
 #' @param ... Additional arguments passed to fit
 #' @return Test error.
 #' @export
-cv_eval <- function(object, X, y, error, index, ...){
+cv_eval <- function(object, X, y, error_funcs, index, ...){
   # Separate X and y into training and test data
   X_train <- X[-index, , drop = FALSE]
   X_test <- X[index, , drop = FALSE]
   y_train <- y[-index]
   y_test <- y[index]
-  # Fit training data
+  # Fit model training data
   object$fit(X_train, y_train, ...)
   # Predict on test data
   y_hat <- object$predict(X_test)
-  # Compute error
-  error(y_hat, y_test)
+  # Compute each error
+  errors <- c()
+  for (i in 1:length(error_funcs))
+    errors[i] <- error_funcs[[i]](y_hat, y_test)
+  return(errors)
 }
 
 #' K-fold cross-validation for R6 class with parallel computation
@@ -203,9 +209,8 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000,
       errors <- list()
       folds <- split(sample(1:n), 1:k)
       for (j in 1:k) {
-        errors[[j]] <- mapply(cv_eval, error = error_funcs,
-                            MoreArgs = list(object = object, X = X, y = y,
-                                            index = folds[[j]], ...))
+        # Fit model and obtain errors
+        errors[[j]] <- cv_eval(object, X, y, error_funcs, index = folds[[j]])
       }
       return(errors)
     }
@@ -216,9 +221,7 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000,
       errors <- list()
       folds <- split(sample(1:n), 1:k)
       for (j in 1:k) {
-        errors[[j]] <- mapply(cv_eval, error = error_funcs,
-                              MoreArgs = list(object = object, X = X, y = y,
-                                              index = folds[[j]], ...))
+        errors[[j]] <- cv_eval(object, X, y, error_funcs, index = folds[[j]])
       }
       error_list[[i]] <- errors
     }

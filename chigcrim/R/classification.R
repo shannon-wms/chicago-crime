@@ -149,7 +149,7 @@ LogisticRegression <- R6Class("LogisticRegression", list(
 #' Support vector machine wrapper
 #'
 #' @description
-#' R6 class wrapper for support vector machine implementation from e1071 package.
+#' R6 class wrapper for support vector machine implementation from **e1071** package.
 #'
 #' @field kernel Kernel function to use (as in svm documentation)
 #' @field fitted_model `svm` object representing the fitted model.
@@ -241,14 +241,14 @@ classification_accuracy <- function(y_hat, y_test){
 #' Sensitivity
 #' Calculates the sensitivity (proportion of positives correctly identified).
 #'
-#' @param y_hat 0 1 vector of predictions.
-#' @param y_test 0 1 vector of observations.
+#' @param y_hat Binary vector of predictions.
+#' @param y_test Binary vector of observations.
 #'
-#' @return float sensitivity
+#' @return Float point sensitivity.
 #' @export
 #'
 #' @examples
-#' classification_sensitivity(c(0,1,0), c(0,1,1))
+#' classification_sensitivity(c(0, 1, 0), c(0, 1, 1))
 classification_sensitivity <- function(y_hat, y_test){
   sum(y_hat[y_test == 1] == 1) / length(y_hat[y_test == 1])
 }
@@ -256,14 +256,14 @@ classification_sensitivity <- function(y_hat, y_test){
 #' Specificity
 #' Calculates the specificity (proportion of negatives correctly identified).
 #'
-#' @param y_hat 0 1 vector of predictions.
-#' @param y_test 0 1 vector of observations.
+#' @param y_hat Binary vector of predictions.
+#' @param y_test Binary vector of observations.
 #'
-#' @return float specificity.
+#' @return Floating point specificity.
 #' @export
 #'
 #' @examples
-#' classification_specificity(c(0,1,0), c(0,1,1))
+#' classification_specificity(c(0, 1, 0), c(0, 1, 1))
 classification_specificity <- function(y_hat, y_test){
   sum(y_hat[y_test == 0] == 0) / length(y_hat[y_test == 0])
 }
