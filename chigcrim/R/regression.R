@@ -30,7 +30,6 @@ NULL
 #' @field X_train Training X matrix.
 #' @field y_train Training y vector.
 #' @field X_test Testing X matrix.
-#' @field y_test Testing y vector.
 #' @field predictions The predicted values.
 #' @export
 #' @examples
@@ -53,7 +52,6 @@ KernelRidge <- R6Class("KernelRidge", public = list(
   X_train = "matrix",
   X_test = "matrix",
   y_train = "vector",
-  y_test = "vector",
   predictions = "vector",
 
   #' @description
@@ -221,8 +219,8 @@ r_squared <- function(y_hat, y){
 #' details on model fitting methods, see **mgcv**.
 #'
 #' @field X_train The training data matrix.
-#' @field y_train The training response vector.
 #' @field X_test The test data matrix.
+#' @field y_train The training response vector.
 #' @field time_period Specifies the time period: must be one of "days", "weeks" or
 #' "months".
 #' @field region Specifies the spatial region to use: must be one of "beat", "district",
@@ -245,16 +243,14 @@ r_squared <- function(y_hat, y){
 #' X_train <- count_df[-test_index, 1:3]
 #' y_train <- count_df[-test_index, 4]
 #' X_test <- count_df[test_index, 1:3]
-#' y_test <- data[test_index, 4]
 #' pg <- PoissonGAM$new(time_period = "week", region = "community_area",
 #'                      crime_type = NULL, include_nb = FALSE)
 #' pg$fit(X_train, y_train, n_threads = 1)
-#' pred <- pg$predict(X_test, y_test)
+#' pred <- pg$predict(X_test)
 PoissonGAM <- R6Class("PoissonGAM", public = list(
   X_train = "data.frame",
   X_test = "data.frame",
   y_train = "vector",
-  y_test = "vector",
   time_period = "character",
   region = "character",
   crime_type = "character",
@@ -289,6 +285,7 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   #' @description
   #' Function for fitting a GAM to the training dataset.
   #' @param X_train The training dataset.
+  #' @param y_train The training response vector.
   #' @param convert Whether the column `date` should be converted to instants
   #' or they are already present.
   #' @param n_threads The number of threads to use for parallel smoothing
@@ -317,9 +314,11 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   },
   #' @description
   #' Prediction for a new dataset
-  #' @param df_test The training dataset.
+  #' @param X_test The test data matrix.
   #' @param convert Whether the column `date` should be converted to instants
   #' or they are already present.
+  #' @param quiet If TRUE, the function will not return the predicted values and
+  #' will only update the object.
   #' @return Vector of predicted values.
   predict = function(X_test = NULL, convert = FALSE, quiet = FALSE) {
     if (!is.null(X_test)) {
