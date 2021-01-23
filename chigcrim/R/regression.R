@@ -219,8 +219,8 @@ r_squared <- function(y_hat, y){
 #' details on model fitting methods, see **mgcv**.
 #'
 #' @field X_train The training data matrix.
-#' @field X_test The test data matrix.
 #' @field y_train The training response vector.
+#' @field X_test The test data matrix.
 #' @field time_period Specifies the time period: must be one of "days", "weeks" or
 #' "months".
 #' @field region Specifies the spatial region to use: must be one of "beat", "district",
@@ -249,8 +249,8 @@ r_squared <- function(y_hat, y){
 #' pred <- pg$predict(X_test)
 PoissonGAM <- R6Class("PoissonGAM", public = list(
   X_train = "data.frame",
-  X_test = "data.frame",
   y_train = "vector",
+  X_test = "data.frame",
   time_period = "character",
   region = "character",
   crime_type = "character",
@@ -286,8 +286,6 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   #' Function for fitting a GAM to the training dataset.
   #' @param X_train The training dataset.
   #' @param y_train The training response vector.
-  #' @param convert Whether the column `date` should be converted to instants
-  #' or they are already present.
   #' @param n_threads The number of threads to use for parallel smoothing
   #' parameter selection methods in `gam`.
   #' @param ... Additional arguments to be passed to `gam`.
@@ -315,12 +313,10 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   #' @description
   #' Prediction for a new dataset
   #' @param X_test The test data matrix.
-  #' @param convert Whether the column `date` should be converted to instants
-  #' or they are already present.
   #' @param quiet If TRUE, the function will not return the predicted values and
   #' will only update the object.
   #' @return Vector of predicted values.
-  predict = function(X_test = NULL, convert = FALSE, quiet = FALSE) {
+  predict = function(X_test = NULL, quiet = FALSE) {
     if (!is.null(X_test)) {
       self$X_test <- X_test
       # Prediction on test data
