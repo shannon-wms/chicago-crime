@@ -274,9 +274,9 @@ convert_dates <- function(df, date_col = "date", as_factors = TRUE,
   }
   # Remove specified rows to exclude
   if (!is.null(exclude)) {
-    if (!all(exclude %in% c("month", "week", "day", "hour", "yday", "date"))) {
-      return('Ensure that exclude is a valid selection from
-             "month", "week", "day", "hour", "yday", "date".')
+    if (!all(exclude %in% c("month", "week", "day", "hour", "yday", "wday", "date"))) {
+      stop('Ensure that exclude is a valid selection from
+             "month", "week", "day", "hour", "yday", "wday", "date".')
     } else df <- df[, !names(df) %in% exclude]
   }
   # Filter out weeks > 53 if required
@@ -314,7 +314,7 @@ get_count_data = function(df, time_period = "week", region = "community_area",
       count(get(region), get(time_period), year) %>%
       rename(!!eval(time_period) := `get(time_period)`,
              !!eval(region) := `get(region)`) %>%
-      arrange(get(time_period), get(region), year)
+      arrange(get(region), get(time_period), year)
   }
   return(count_data)
 }
