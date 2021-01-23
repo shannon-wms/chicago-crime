@@ -2,23 +2,21 @@
 % Please edit documentation in R/classification.R
 \name{classification_accuracy}
 \alias{classification_accuracy}
-\title{Accuracy
-Calculates the proportion of correctly classified predictions.}
+\title{Accuracy}
 \usage{
 classification_accuracy(y_hat, y_test)
 }
 \arguments{
-\item{y_hat}{0 1 vector of predictions.}
+\item{y_hat}{Binary vector of predictions.}
 
-\item{y_test}{0 1 vector of observations.}
+\item{y_test}{Binary vector of observations.}
 }
 \value{
-float proportion of correct predictions
+float Proportion of correct predictions
 }
 \description{
-Accuracy
-Calculates the proportion of correctly classified predictions.
+Computes the proportion of correctly classified predictions.
 }
 \examples{
-classification_accuracy(c(0,1,0), c(0,1,1))
+classification_accuracy(c(0, 1, 0), c(0, 1, 1))
 }

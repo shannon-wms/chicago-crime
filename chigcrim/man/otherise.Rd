@@ -2,7 +2,8 @@
 % Please edit documentation in R/utils.R
 \name{otherise}
 \alias{otherise}
-\title{Convert less common strings to other.}
+\title{Convert less common strings to "OTHER", to be used when `primary_type` or
+`description` is used from the Chicago Crime dataset.}
 \usage{
 otherise(string_vec, n_threshold, print_summary = TRUE)
 }
@@ -14,8 +15,9 @@ otherise(string_vec, n_threshold, print_summary = TRUE)
 \item{print_summary}{Prints a summary of operation performed.}
 }
 \value{
-vector of strings
+Vector of strings with the least common strings as "OTHER".
 }
 \description{
-Convert less common strings to other.
+Convert less common strings to "OTHER", to be used when `primary_type` or
+`description` is used from the Chicago Crime dataset.
 }
