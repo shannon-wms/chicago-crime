@@ -53,12 +53,12 @@ test_that("cv_eval works for class Logistic Regression", {
   expect_equal(cv_errors, expected)
 })
 
-test_that("convert_dates") {
+test_that("convert_dates", {
   expect_error(convert_dates(test_data, exclude = "weeek"))
   expect_error(convert_dates(test_data, date_col = "daate"))
-}
+})
 
-test_that("get_count_data" {
+test_that("get_count_data", {
   expect_error(get_count_data(test_data, time_period = "weeek"))
   expect_error(get_count_data(test_data, region = "region"))
   # Check the returned dataframe is correct
