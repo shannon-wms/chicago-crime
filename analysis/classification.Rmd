@@ -121,8 +121,7 @@ X <- X[idxs, ]
 y <- y[idxs]
 
 svm <- SupportVectorMachine$new(kernel = "radial")
-svm_results <- kfold_cv(svm, X, y, metrics, 5, 3, parallel = FALSE,
-                        n_threads = 5, gamma = 2^-5, cost = 2^4)
+
 ob <- tune(e1071::svm, y ~ ., data = cbind(X, y),
            ranges = list(cost = 2^(-2:5),gamma = 2^(-15:-4)),
            tunecontrol = tune.control(nrepeat = 3,
@@ -133,14 +132,29 @@ svm_results <- kfold_cv(svm, X, y, metrics, 5, 3, parallel = FALSE,
                         n_threads = 5, gamma = 2^-5, cost = 2^4)
 
 as_tibble(svm_results)
+
+X <- df %>% select(-arrest)
+y <- df$arrest
+idxs <- sample(1:nrow(df), 60000)
+X <- X[idxs, ]
+y <- y[idxs]
+
+
+# Fit to larger subset and predict on full 2019 data
 svm$fit(X, y, gamma = 2^-5, cost = 2^4)
+
 svm$predict(df)
-svm$predictions
-confusionMatrix(as.factor(svm$predictions), as.factor(df$arrest))
+svm$predictions 
+
+# Get metrics
+svm_results <- 
+classification_accuracy(svm$predictions, df$arrest)
+classification_sensitivity(as.numeric(svm$predictions) - 1, as.numeric(df$arrest))
+classification_specificity(as.numeric(svm$predictions) - 1, as.numeric(df$arrest))
 ```
 
 ### Random Forest
-The random forest trains multiple decision trees using a subset of features to create each tree. Decision trees are an ordered set of rules defined on the feature values that attempt to split the data into classes. They have a tendency to overfit, the random forest solves this by growing multiple trees on different features within the dataset. In the classification case a prediction is made by predicting from each decision tree separately and finding the most common predicted class. They are a black-box method but can be useful for prediction. The R6 class used here uses the `randomForest` package internally. Due to the high computational cost involved in fitting random forest models we again use a subset of the data (20000 rows) as we did for the SVM.
+The random forest trains multiple decision trees using a subset of features to create each tree. Decision trees are an ordered set of rules defined on the feature values that attempt to split the data into classes. They have a tendency to overfit, the random forest solves this by growing multiple trees on different features within the dataset. In the classification case a prediction is made by predicting from each decision tree separately and finding the most common predicted class. They are a black-box method but can be useful for prediction. The R6 class used here uses the `randomForest` package internally. Due to the high computational cost involved in fitting random forest models we again use a randomly selected subset of the data (20000 rows) as we did for the SVM.
 
 ```{r}
 X <- select(X, - "community_area")  # Can't handle feature with so many levels.
@@ -162,6 +176,10 @@ rf$fit(X, y)
 
 imp <- importance(rf$fitted_model)
 imp <- tibble(feature = row.names(imp), mean_decrease_gini = as.vector(imp))
+
+classification_accuracy(as.numeric(predict(rf, newdata = df))-1, df$arrest)
+classification_sensitivity(as.numeric(predict(rf, newdata = df))-1, as.numeric(df$arrest))
+classification_specificity(as.numeric(predict(rf, newdata = df))-1, as.numeric(df$arrest))
 
 imp %>%
   arrange(desc(mean_decrease_gini)) %>%
