@@ -616,8 +616,6 @@ df_test <- load_data(2019, strings_as_factors = TRUE)
 
 ### Daily Predictions
 
-It is then necessary to prepare the data for its' use within the Generalised Additive Models. 
-
 ```{r}
 # Extract useful information from the date
 df_train %<>% convert_dates(as_factors = FALSE, exclude = "hour")
@@ -632,7 +630,7 @@ gam_train <- df_train %>% select(all_of(keep_features)) %>% na.omit()
 gam_test <- df_test %>% select(all_of(keep_features)) %>% na.omit()
 ```
 
-We are interested in predicting the daily number of crimes, each row represents a crime thus we need to sum the rows for each day to get the number of crimes. We can use the `count` function to achieve this. Later we will look at breaking down the data further to predict how many of each type of crime (by FBI code) will occur in each commmunity area on a given day.
+As each row in the datasets represent a single reported crime incident, we need to sum the number of rows for each day in order to get the number of reported crimes for each day. We use `count` from **dplyr** to achieve this.
 
 ```{r}
 count_train <- gam_train %>% count(yday, year, date) %>% arrange(year, yday)
@@ -641,6 +639,7 @@ count_test <- gam_test %>% count(yday, year, date) %>% arrange(year, yday)
 print(as.data.frame(head(count_train)))
 ```
 
+We separate this dataset into a training set and a test set, and proceed to fit our baseline GAM which has the year and day of the year as predictors. We use a cyclic cubic smoother for the day of the year. 
 
 ```{r, cache = TRUE}
 # Convert data to matrix and vector format for model training
@@ -676,8 +675,11 @@ base_gam_plot
 
 # Obtain metrics on test data
 pred_test <- gam1$predict(X = X_test)
-rmse_loss(pred_test, y_test)
-r_squared(pred_test, y_test)
+# Initialise vectors for RMSE and R squared values
+rmse <- c()
+rsq <- c()
+rmse[1] <- rmse_loss(pred_test, y_test)
+rsq[1] <- r_squared(pred_test, y_test)
 ```
 
 ## Feature creation
@@ -713,7 +715,7 @@ count_test_new <- count_test %>%
   add_is_christmas() %>% add_is_nyd()
 ```
 
-```{r, include = FALSE}
+```{r, include = FALSE, cache = TRUE}
 data_2014 <- readRDS("temp_data/data14.rds")
 ```
 
@@ -721,17 +723,18 @@ data_2014 <- readRDS("temp_data/data14.rds")
 data_2014 <- load_data(2014, strings_as_factors = TRUE)
 ```
 
-```{r}
+```{r, cache = TRUE}
 data_2014 <- data_2014 %>% convert_dates(exclude = "hour") %>% count(year, date) %>% arrange(year)
 count_train_new[1, "n_pre"] <- data_2014[data_2014$date == "2014-12-31", "n"][1,] #fill in previous year manually
 count_test_new[1, "n_pre"] <- count_train_new[count_train_new$date == "2018-12-31", "n"] #fill in previous year manually
-
+print(as.data.frame(head(count_train_new)))
 ```
 
 As `PoissonGAM` doesn't currently have functionality to support additional custom features, here we fit the GAM directly using `gam` from **mgcv**.
 
-```{r}
-gam2 <- gam(n ~ s(as.numeric(yday), bs = "cc") + n_pre, data = count_train_new, family = "poisson")
+```{r, cache = TRUE}
+gam2 <- gam(n ~ s(as.numeric(yday), bs = "cc") + n_pre, 
+            data = count_train_new, family = "poisson")
 
 gam_plot2 <- ggplot(all_dat) + geom_point(aes(date, n)) + 
   xlab("Date") + ylab("Daily crimes") + 
@@ -743,65 +746,79 @@ gam_plot2 <- ggplot(all_dat) + geom_point(aes(date, n)) +
                                          linetype = "solid"), 
         legend.title = element_text(size = 13), 
         legend.text = element_text(size = 10))
-
-gam2_pred <- rmse_loss(predict(gam2, type = "response"), newdata = count_test_new)
-
-RMSE2 <- rmse_loss(predict(gam2, type = "response", newdata = test_dat), test_dat$n)
-RMSE2
-
-R2_2 <- r_squared(predict(gam2, type = "response", newdata = test_dat), test_dat$n)
-R2_2
-
+# Obtain metrics on test data
+gam2_pred <- predict(gam2, type = "response", newdata = count_test_new)
+rmse[2] <- rmse_loss(gam2_pred, count_test_new$n)
+rsq[2] <- rsquared(gam2_pred, count_test_new$n)
 ```
 
 ```{r}
-gam3 <- gam(n ~ s(as.numeric(yday), bs = "cc") + s(as.numeric(dow), bs = "cr", k = 5) + n_pre, data = count_train_new, family = "poisson")
+gam3 <- gam(n ~ s(as.numeric(yday), bs = "cc") + 
+              s(as.numeric(dow), bs = "cr", k = 5) + n_pre, 
+            data = count_train_new, family = "poisson")
 
-gam_plot3 <- ggplot(all_dat) + geom_point(aes(date, n)) + xlab("Date") + ylab("Daily crimes") + geom_line(aes(date, predict(gam3, type = "response", newdata = all_dat), colour = Type), size = 2, alpha = 0.4) + ggtitle("Daily GAM") + theme(legend.position = c(0.9, 0.9), legend.background = element_rect(fill="lightgrey", size=0.5, linetype="solid"), legend.title = element_text(size = 13), legend.text = element_text(size = 10))
-RMSE3 <- rmse_loss(predict(gam3, type = "response", newdata = test_dat), test_dat$n)
-RMSE3
-
-R2_3 <- r_squared(predict(gam3, type = "response", newdata = test_dat), test_dat$n)
-R2_3
-
-
-```
-```{r}
-gam4 <- gam(n ~ s(as.numeric(yday), bs = "cc") + as.factor(dow) + n_pre, data = count_train_new, family = "poisson")
-
-gam_plot4 <- ggplot(all_dat) + geom_point(aes(date, n)) + xlab("Date") + ylab("Daily crimes") + geom_line(aes(date, predict(gam4, type = "response", newdata = all_dat), colour = Type), size = 2, alpha = 0.4) + ggtitle("Daily GAM") + theme(legend.position = c(0.9, 0.9), legend.background = element_rect(fill="lightgrey", size=0.5, linetype="solid"), legend.title = element_text(size = 13), legend.text = element_text(size = 10))
-
-RMSE4 <- rmse_loss(predict(gam4, type = "response", newdata = test_dat), test_dat$n)
-RMSE4
-
-R2_4 <- r_squared(predict(gam4, type = "response", newdata = test_dat), test_dat$n)
-R2_4
-
-
+gam_plot3 <- ggplot(all_dat) + geom_point(aes(date, n)) + 
+  xlab("Date") + ylab("Daily crimes") + 
+  geom_line(aes(date, predict(gam3, type = "response", newdata = all_dat), 
+                colour = Type), size = 2, alpha = 0.4) + 
+  ggtitle("Daily GAM") + t
+heme(legend.position = c(0.9, 0.9), 
+     legend.background = element_rect(fill = "lightgrey", size = 0.5, 
+                                      linetype = "solid"), 
+     legend.title = element_text(size = 13), 
+     legend.text = element_text(size = 10))
+# Obtain metrics on test data
+gam3_pred <- predict(gam3, type = "response", newdata = count_test_new)
+rmse[3] <- rmse_loss(gam3_pred, count_test_new$n)
+rsq[3] <- r_squared(gam3_pred, count_test_new$n)
 ```
 
 ```{r}
+gam4 <- gam(n ~ s(as.numeric(yday), bs = "cc") + 
+              as.factor(dow) + n_pre, 
+            data = count_train_new, family = "poisson")
 
-gam5 <- gam(n ~ s(as.numeric(yday), bs = "cc") + as.factor(dow) + n_pre + is_fom + is_christmas + 
-               is_NYD + as.factor(week) , data = count_train_new, family = "poisson")
+gam_plot4 <- ggplot(all_dat) + geom_point(aes(date, n)) + 
+  xlab("Date") + ylab("Daily crimes") + 
+  geom_line(aes(date, predict(gam4, type = "response", newdata = all_dat), 
+                colour = Type), size = 2, alpha = 0.4) + 
+  ggtitle("Daily GAM") + 
+  theme(legend.position = c(0.9, 0.9), 
+        legend.background = element_rect(fill = "lightgrey", size = 0.5, 
+                                         linetype = "solid"), 
+        legend.title = element_text(size = 13), 
+        legend.text = element_text(size = 10))
+# Obtain metrics on test data
+gam4_pred <- predict(gam4, type = "response", newdata = count_test_new)
+rmse[4] <- rmse_loss(gam4_pred, count_test_new$n)
+rsq[4] <- r_squared(gam4_pred, count_test_new$n)
+```
 
-best_gam_plot <- ggplot(all_dat) + geom_point(aes(date, n)) + xlab("Date") + ylab("Daily crimes") + geom_line(aes(date, predict(gam5, type = "response", newdata = all_dat), colour = Type), size = 2, alpha = 0.4) + ggtitle("Daily GAM") + theme(legend.position = c(0.9, 0.9), legend.background = element_rect(fill="lightgrey", size=0.5, linetype="solid"), legend.title = element_text(size = 13), legend.text = element_text(size = 10))
+```{r}
+gam5 <- gam(n ~ s(as.numeric(yday), bs = "cc") + as.factor(dow) + n_pre + 
+              is_fom + is_christmas + is_nyd + as.factor(week), 
+            data = count_train_new, family = "poisson")
 
+best_gam_plot <- ggplot(all_dat) + geom_point(aes(date, n)) + 
+  xlab("Date") + ylab("Daily crimes") + 
+  geom_line(aes(date, predict(gam5, type = "response", newdata = all_dat), 
+                colour = Type), size = 2, alpha = 0.4) + 
+  ggtitle("Daily GAM") + 
+  theme(legend.position = c(0.9, 0.9), 
+        legend.background = element_rect(fill = "lightgrey", size = 0.5, 
+                                         linetype = "solid"), 
+        legend.title = element_text(size = 13), 
+        legend.text = element_text(size = 10))
+# Obtain metrics on test data
+gam5_pred <- predict(gam5, type = "response", newdata = count_test_new)
+rmse[5] <- rmse_loss(gam5_pred, count_test_data$n)
+rsq[5] <- r_squared(gam5_pred, count_test_data)
 
-RMSE5 <- rmse_loss(predict(gam5, type = "response", newdata = test_dat), test_dat$n)
-RMSE5
-
-R2_5 <- r_squared(predict(gam5, type = "response", newdata = test_dat), test_dat$n)
-R2_5
-
-plot(predict(gam5, type = "response", newdata = test_dat), test_dat$n)
+plot(predict(gam5, type = "response", newdata = count_test_new), count_test_new$n)
 abline(b = 1, a = 0, col = "red")
 
-gam_metrics <- data.frame(RMSE = c(RMSE1, RMSE2, RMSE3, RMSE4, RMSE5), R2 = c(R2_1, R2_2, R2_3, R2_4, R2_5))
-
-xtable(gam_metrics)
-
-ggsave("../plots/best_gam_plot.pdf", plot = best_gam_plot, width = 9.99, height = 6.45, units = "in")
+gam_metrics <- data.frame(RMSE = rmse, R2 = rsq)
+xtable::xtable(gam_metrics)
 ```
 
 ```{r}
