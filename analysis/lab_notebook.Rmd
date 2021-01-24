@@ -12,8 +12,6 @@ knitr::opts_knit$set(root.dir = paste0(rprojroot::find_rstudio_root_file(), "/ch
 
 # Introduction
 
-This lab notebook contains the analyses undertaken as part of the COMPASS TB1 group project. We will be working on the Chicago crime data set, which contains information on incidents reported in Chicago.
-
 In this lab notebook we present the analyses undertaken as part of the Compass TB1 group project. We focus on a large, open source dataset provided by the City of Chicago consisting of reported incidents of crime from 2001 to present day, as reported by the Chicago Police Department. The dataset can be obtained from the website \url{https://data.cityofchicago.org/Public-Safety/Crimes-2001-to-Present/ijzp-q8t2}. 
 
 The notebook will be broken up into four sections:
@@ -22,7 +20,7 @@ The notebook will be broken up into four sections:
 
 2. Classification: Predicting whether a reported crime led to the arrest of a suspect. We consider three different discriminative classifiers: logistic regression, support vector machines, and random forests.
 
-3. Prediction: Predicting the number of crimes which occur in a given region over a specified time period (of a given type, if desired), through interpolation. We consider kernel ridge regression and generalised additive models (GAMs).
+3. Predicting the number of crimes by interpolation: Predicting the number of crimes which occur in a given region over a specified time period (of a given type, if desired), through interpolation. We consider kernel ridge regression and generalised additive models (GAMs).
 
 4. Forecasting: Forecasting the number of crimes which occur in a given region over a specified time period (of a given type, if desired), based on previous time-stamped data. Again, we consider the use of GAMs.
 
@@ -341,8 +339,8 @@ rmse_vec <- c()
 # Conduct a grid search with 5-fold CV
 for (i in 1:length(bandwidth)){
   kr = KernelRidge$new("rbf", lambda = 0.001, bandwidth[i])
-  cv_results <- kfold_cv(kr, X, y, metrics, 5, n_reps = 3, 
-                         parallel = TRUE, n_threads = 3 )
+  cv_results <- kfold_cv(kr, X, y, metrics, 5, n_reps = 5, 
+                         parallel = TRUE, n_threads = 5)
   mean_rmse <- mean(cv_results$rmse)
   rmse_vec <- c(rmse_vec, mean_rmse)
   # If mean RMSE is better than for the last best model clone and treat as best
@@ -418,20 +416,18 @@ The positions of the community areas will be represented by the coordinates of t
 
 ```{r warning = FALSE, message = FALSE}
 rm(list = ls())
-data("community_bounds")
-bounds_df <- fortify(community_bounds)
-centroids <- community_bounds %>% arrange(as.integer(area_numbe)) %>%
-  st_centroid() %>% st_coordinates() %>% as_tibble() %>%
+centroids <- community_bounds %>%
+  arrange(as.integer(area_numbe)) %>%
+  st_centroid() %>%
+  st_coordinates() %>%
+  as_tibble() %>%
   mutate(community_area = 1:nrow(.))
 
-# Not sure if this works
-p2 <- ggplot(centroids, aes(X, Y)) +
-  geom_point(size = 6, colour = "steelblue1") +
-  geom_text(aes(label = community_area)) +
-  theme_void() + 
-  geom_path(data = bounds_df, 
-          aes(x = long, y = lat, group = group),
-          color = 'grey3', size = .2)
+p2 <- ggplot() +
+  geom_sf(data = community_bounds) +
+  geom_point(data = centroids, aes(X, Y), size = 5, colour = "steelblue1") +
+  geom_text(data = centroids, aes(X, Y, label = community_area)) +
+  theme_void()
 p2
 ```
 We shall consider data from the years 2017 to 2020.
@@ -441,7 +437,7 @@ df <- readRDS("temp_data/date1720.rds")
 ```
 
 ```{r eval = FALSE}
-df <- load_data(c(2017, 2020), strings_as_factors = FALSE, na_omit = TRUE)
+df <- load_data(c(2016, 2020), strings_as_factors = FALSE, na_omit = TRUE)
 ```
 
 ```{r, cache = TRUE, message = FALSE}
@@ -472,8 +468,8 @@ rmse_vec <- c()
 set.seed(3)
 for (i in 1:length(bandwidth)){
   kr <- KernelRidge$new("rbf", lambda = 0.001, bandwidth[i])
-  cv_results <- kfold_cv(kr, X, y, metrics, k = 5, n_reps = 3,
-                         parallel = TRUE, n_threads = 3 )
+  cv_results <- kfold_cv(kr, X, y, metrics, k = 5, n_reps = 5,
+                         parallel = TRUE, n_threads = 5)
   mean_rmse <- mean(cv_results$rmse)
   rmse_vec <- c(rmse_vec, mean_rmse)
   # Save best model
@@ -515,7 +511,7 @@ kr_best$fit(X_train, y_train)
 y_hat <- kr_best$predict(X_test)
 
 p3 <- qplot(y_test, y_hat, geom = "point") +
-  geom_abline(slope = 1, intercept = 0, colour = "red") +
+  geom_abline(slope = 1, intercept = 0, colour = "steelblue2") +
   labs(x = "Actual number of crimes", y = "Predicted number of crimes")
 p3
 ```
