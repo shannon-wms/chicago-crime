@@ -339,8 +339,8 @@ rmse_vec <- c()
 # Conduct a grid search with 5-fold CV
 for (i in 1:length(bandwidth)){
   kr = KernelRidge$new("rbf", lambda = 0.001, bandwidth[i])
-  cv_results <- kfold_cv(kr, X, y, metrics, 5, n_reps = 3, 
-                         parallel = TRUE, n_threads = 3 )
+  cv_results <- kfold_cv(kr, X, y, metrics, 5, n_reps = 5, 
+                         parallel = TRUE, n_threads = 5)
   mean_rmse <- mean(cv_results$rmse)
   rmse_vec <- c(rmse_vec, mean_rmse)
   # If mean RMSE is better than for the last best model clone and treat as best
@@ -468,8 +468,8 @@ rmse_vec <- c()
 set.seed(3)
 for (i in 1:length(bandwidth)){
   kr <- KernelRidge$new("rbf", lambda = 0.001, bandwidth[i])
-  cv_results <- kfold_cv(kr, X, y, metrics, k = 5, n_reps = 3,
-                         parallel = TRUE, n_threads = 3 )
+  cv_results <- kfold_cv(kr, X, y, metrics, k = 5, n_reps = 5,
+                         parallel = TRUE, n_threads = 5)
   mean_rmse <- mean(cv_results$rmse)
   rmse_vec <- c(rmse_vec, mean_rmse)
   # Save best model
@@ -511,7 +511,7 @@ kr_best$fit(X_train, y_train)
 y_hat <- kr_best$predict(X_test)
 
 p3 <- qplot(y_test, y_hat, geom = "point") +
-  geom_abline(slope = 1, intercept = 0, colour = "red") +
+  geom_abline(slope = 1, intercept = 0, colour = "steelblue2") +
   labs(x = "Actual number of crimes", y = "Predicted number of crimes")
 p3
 ```
