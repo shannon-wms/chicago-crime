@@ -27,7 +27,7 @@ test_that("load_data", {
   expect_equal(df, expected)
 })
 
-test_that("cv_eval works for class Logistic Regression", {
+test_that("cv_eval works for class LogisticRegression", {
   X <- test_data %>% select(fbi_code, yday)
   y <- test_data$arrest
   # Initialise LogisticRegression object  

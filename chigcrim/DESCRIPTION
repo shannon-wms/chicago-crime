@@ -2,8 +2,8 @@ Package: chigcrim
 Type: Package
 Title: What the Package Does (Title Case)
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
+Author: Euan Enticott, Daniel Ward, Shannon Williams
+Maintainer: Shannon Williams <shannon.williams@bristol.ac.uk>
 Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.
 License: AGPL-3
@@ -30,6 +30,7 @@ Imports:
     foreach,
     e1071,
     randomForest,
-    rlang
+    rlang, 
+    caret
 Depends: 
     R (>= 3.5.0)
