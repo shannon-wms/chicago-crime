@@ -60,6 +60,8 @@ For tests, we used the **testthat** package. This simply creates a new directory
 
 In order to make sure that tests and checks were run on a regular basis, continuous integration was set up using github actions. This runs `rcmdcheck()` for each pull request and push to the main branch. This limits the possibility of unintentionally introducing breaking changes.
 
+\pagebreak
+
 # Classification
 
 ```{r, message = FALSE}
@@ -136,7 +138,7 @@ Below we outline our feature selection and data pre-processing choices. These de
 
 - Particularly rare factors will be grouped into a variable other (see `?otherise`).
 
-```{r, cache = TRUE}
+```{r}
 # Convert rarely used fbi categories to "OTHER"
 df$fbi_code <- otherise(df$fbi_code, 500)
 df$location_description <- otherise(df$location_description, 1000)
@@ -186,7 +188,8 @@ lr_results <- readRDS("temp_data/lr_results.rds")
 
 ```{r}
 # Export results for use in report
-xtable::xtable(as_tibble(lr_results), digits = 4)
+tab <- xtable::xtable(as_tibble(lr_results), digits = 4)
+print(tab, type = "latex")
 ```
 
 ### Support Vector Machines
@@ -236,7 +239,8 @@ svm_results <- kfold_cv(svm, X_subset, y_subset, metrics, k = 5,
 
 ```{r, cache = TRUE}
 # Export results for use in report
-xtable::xtable(as_tibble(svm_results), digits = 4)
+tab <- xtable::xtable(as_tibble(svm_results), digits = 4)
+print(tab, type = "latex")
 ```
 
 ### Random Forest
@@ -264,7 +268,8 @@ rf_results <- kfold_cv(rf, X_subset, y_subset, metrics, k = 5,
 
 ```{r, cache = TRUE}
 # Export results for use in report
-xtable::xtable(as_tibble(rf_results), digits = 4)
+tab <- xtable::xtable(as_tibble(rf_results), digits = 4)
+print(tab, type = "latex")
 ```
 
 ## Model Comparisons
@@ -296,6 +301,8 @@ imp_plot
 ```
 
 The plot suggests that the most "important" feature is `fbi_code`, which is somewhat unsurprising as this tells us what type of crime was reported. This would intuitively have a significant impact on whether the incident report led to a suspect being arrested. None of the models achieve an accuracy of more than 90%. The availability of more data, for example the demographic background of the suspect and whether they have been arrested previously, would likely allow for more accurate predictions.
+
+\pagebreak
 
 # Prediction
 
@@ -410,7 +417,8 @@ bandwidth_plot + xlab("Bandwidth") + ylab("RMSE")
 We can see that a bandwidth parameter value of `r kr_best$A` gave the lowest root mean square error. We can look at the results for the three repeats of 5-fold cross-validation for this model:
 
 ```{r}
-xtable::xtable(as_tibble(cv_results_best), digits = 4)
+tab <- xtable::xtable(as_tibble(cv_results_best), digits = 4)
+print(tab, type = "latex")
 ```
 
 The model performs very well, explaining `r round(mean(cv_results_best$r2), 4)*100` % of the variance on average.
@@ -553,7 +561,8 @@ bandwidth_plot + xlab("Bandwidth") + ylab("RMSE")
 We obtain an optimal value of `r kr_best$A` which minimises the mean square error. Again, we can look at the results for the three repeats of 5-fold cross-validation for this model:
 
 ```{r}
-xtable::xtable(as_tibble(cv_results_best))
+tab <- xtable::xtable(as_tibble(cv_results_best))
+print(tab, type = "latex")
 ```
 
 On average, this model explained `r round(mean(cv_results_best$r2), 4)*100`% of the variance. Note the lower $R^2$ value: in contrast to the weekly model, observations were not averaged over the whole of Chicago.
@@ -574,7 +583,8 @@ y_hat <- kr_best$predict(X_test)
 
 pred_plot <- qplot(y_test, y_hat, geom = "point") +
   geom_abline(slope = 1, intercept = 0, colour = "steelblue2") +
-  labs(x = "Actual number of reported incidents", y = "Predicted number of reported incidents") +
+  labs(x = "Actual number of reported incidents", 
+       y = "Predicted number of reported incidents") +
   scale_y_continuous(breaks = seq(0, 2000, by = 500))
 pred_plot
 ```
@@ -586,3 +596,235 @@ We conclude this section by noting that kernel ridge regression can provide pred
 In the subsequent section, we explore generalised additive models, which form a more principled approach for forecasting the number of crimes.
 
 ## Generalised Additive Models
+
+A little about `PoissonGAM` and **mgcv**.
+
+For the training data we will use historical data between 2015 and 2018. We will then predict on the data from 2019 to test the model.
+
+```{r, include = FALSE}
+rm(list = ls())
+df_train <- readRDS("temp_data/data1518.rds")
+df_test <- readRDS("temp_data/data19.rds")
+```
+
+```{r, eval = FALSE}
+# Downoad training data
+df_train <- load_data(c(2015, 2018), strings_as_factors = TRUE)
+# Download test data
+df_test <- load_data(2019, strings_as_factors = TRUE)
+```
+
+### Daily Predictions
+
+It is then necessary to prepare the data for its' use within the Generalised Additive Models. 
+
+```{r}
+# Extract useful information from the date
+df_train %<>% convert_dates(as_factors = FALSE, exclude = "hour")
+df_test %<>% convert_dates(as_factors = FALSE, exclude = "hour")
+
+# List of features to use in GAM
+keep_features <- c("month", "week", "year", "day", "date", "community_area", 
+                   "beat", "fbi_code", "yday")
+
+# Prep data for use in GAM
+gam_train <- df_train %>% select(all_of(keep_features)) %>% na.omit()
+gam_test <- df_test %>% select(all_of(keep_features)) %>% na.omit()
+```
+
+We are interested in predicting the daily number of crimes, each row represents a crime thus we need to sum the rows for each day to get the number of crimes. We can use the `count` function to achieve this. Later we will look at breaking down the data further to predict how many of each type of crime (by FBI code) will occur in each commmunity area on a given day.
+
+```{r}
+count_train <- gam_train %>% count(yday, year, date) %>% arrange(year, yday)
+count_test <- gam_test %>% count(yday, year, date) %>% arrange(year, yday)
+
+print(as.data.frame(head(count_train)))
+```
+
+
+```{r, cache = TRUE}
+# Convert data to matrix and vector format for model training
+X_train <- count_train %>% select(-n)
+y_train <- count_train$n
+X_test <- count_test %>% select(-n)
+y_test <- count_test$n
+
+# Fit the baseline GAM
+gam1 <- PoissonGAM$new(time_period = "yday", region = NULL, crime_type = NULL, 
+                      include_nb = FALSE, include_year = TRUE)
+gam1$fit(X = X_train, y = y_train, n_threads = 3)
+gam1$fit_summary
+pred <- gam$predict(X = bind_rows(X_train, X_test))
+# Store type of each data 
+count_train$Type <- "Training data"
+count_test$Type <- "Test data"
+all_dat <- bind_rows(count_train, count_test)
+all_dat$Type <- as.factor(all_dat$Type)
+
+# Create plot for baseline model
+base_gam_plot <- ggplot(all_dat) + 
+  geom_point(aes(date, n)) + 
+  xlab("Date") + ylab("Daily number of reported crimes") + 
+  geom_line(aes(date, pred), size = 2) + 
+  ggtitle("Baseline GAM") + 
+  theme(legend.position = c(0.9, 0.9), 
+        legend.background = element_rect(fill = "lightgrey", size = 0.5, 
+                                         linetype = "solid"), 
+        legend.title = element_text(size = 13), 
+        legend.text = element_text(size = 10))
+base_gam_plot
+
+# Obtain metrics on test data
+pred_test <- gam1$predict(X = X_test)
+rmse_loss(pred_test, y_test)
+r_squared(pred_test, y_test)
+```
+
+## Feature creation
+
+There are several features that may be of interest, whether a day is a weekend or not, the number of crimes over the previous month, the number of crimes on the same day of the previous year. 
+
+We first summarise the dates on which the most and fewest crimes are reported, to gain some idea as to what factors might be influential.
+
+```{r}
+most_crimes <- count_train %>% arrange(by = desc(n))
+most_crimes$date <- as.character(most_crimes$date)
+tab <- xtable::xtable(head(most_crimes[, -5]), )
+print(tab, type = "latex")
+```
+
+```{r}
+least_crimes <- count_train %>% arrange(by = n)
+least_crimes$date <- as.character(least_crimes$date)
+tab <- xtable::xtable(head(least_crimes[, -5]), )
+print(tab, type = "latex")
+```
+
+```{r}
+# Add features to training data
+count_train_new <- count_train %>% 
+  mutate(week = week(date), month = month(date)) %>%
+  add_prev_day() %>% add_dow() %>%  add_is_fom() %>% 
+  add_is_christmas() %>% add_is_nyd()
+# Add features to test data
+count_test_new <- count_test %>%
+  mutate(week = week(date), month = month(date)) %>%
+  add_prev_day() %>% add_dow() %>%  add_is_fom() %>% 
+  add_is_christmas() %>% add_is_nyd()
+```
+
+```{r, include = FALSE}
+data_2014 <- readRDS("temp_data/data14.rds")
+```
+
+```{r, eval = FALSE}
+data_2014 <- load_data(2014, strings_as_factors = TRUE)
+```
+
+```{r}
+data_2014 <- data_2014 %>% convert_dates(exclude = "hour") %>% count(year, date) %>% arrange(year)
+count_train_new[1, "n_pre"] <- data_2014[data_2014$date == "2014-12-31", "n"][1,] #fill in previous year manually
+count_test_new[1, "n_pre"] <- count_train_new[count_train_new$date == "2018-12-31", "n"] #fill in previous year manually
+
+```
+
+As `PoissonGAM` doesn't currently have functionality to support additional custom features, here we fit the GAM directly using `gam` from **mgcv**.
+
+```{r}
+gam2 <- gam(n ~ s(as.numeric(yday), bs = "cc") + n_pre, data = count_train_new, family = "poisson")
+
+gam_plot2 <- ggplot(all_dat) + geom_point(aes(date, n)) + 
+  xlab("Date") + ylab("Daily crimes") + 
+  geom_line(aes(date, predict(gam2, type = "response", newdata = all_dat), 
+                colour = Type), size = 2, alpha = 0.4) + 
+  ggtitle("Daily GAM") + 
+  theme(legend.position = c(0.9, 0.9), 
+        legend.background = element_rect(fill = "lightgrey", size = 0.5, 
+                                         linetype = "solid"), 
+        legend.title = element_text(size = 13), 
+        legend.text = element_text(size = 10))
+
+gam2_pred <- rmse_loss(predict(gam2, type = "response"), newdata = count_test_new)
+
+RMSE2 <- rmse_loss(predict(gam2, type = "response", newdata = test_dat), test_dat$n)
+RMSE2
+
+R2_2 <- r_squared(predict(gam2, type = "response", newdata = test_dat), test_dat$n)
+R2_2
+
+```
+
+```{r}
+gam3 <- gam(n ~ s(as.numeric(yday), bs = "cc") + s(as.numeric(dow), bs = "cr", k = 5) + n_pre, data = count_train_new, family = "poisson")
+
+gam_plot3 <- ggplot(all_dat) + geom_point(aes(date, n)) + xlab("Date") + ylab("Daily crimes") + geom_line(aes(date, predict(gam3, type = "response", newdata = all_dat), colour = Type), size = 2, alpha = 0.4) + ggtitle("Daily GAM") + theme(legend.position = c(0.9, 0.9), legend.background = element_rect(fill="lightgrey", size=0.5, linetype="solid"), legend.title = element_text(size = 13), legend.text = element_text(size = 10))
+RMSE3 <- rmse_loss(predict(gam3, type = "response", newdata = test_dat), test_dat$n)
+RMSE3
+
+R2_3 <- r_squared(predict(gam3, type = "response", newdata = test_dat), test_dat$n)
+R2_3
+
+
+```
+```{r}
+gam4 <- gam(n ~ s(as.numeric(yday), bs = "cc") + as.factor(dow) + n_pre, data = count_train_new, family = "poisson")
+
+gam_plot4 <- ggplot(all_dat) + geom_point(aes(date, n)) + xlab("Date") + ylab("Daily crimes") + geom_line(aes(date, predict(gam4, type = "response", newdata = all_dat), colour = Type), size = 2, alpha = 0.4) + ggtitle("Daily GAM") + theme(legend.position = c(0.9, 0.9), legend.background = element_rect(fill="lightgrey", size=0.5, linetype="solid"), legend.title = element_text(size = 13), legend.text = element_text(size = 10))
+
+RMSE4 <- rmse_loss(predict(gam4, type = "response", newdata = test_dat), test_dat$n)
+RMSE4
+
+R2_4 <- r_squared(predict(gam4, type = "response", newdata = test_dat), test_dat$n)
+R2_4
+
+
+```
+
+```{r}
+
+gam5 <- gam(n ~ s(as.numeric(yday), bs = "cc") + as.factor(dow) + n_pre + is_fom + is_christmas + 
+               is_NYD + as.factor(week) , data = count_train_new, family = "poisson")
+
+best_gam_plot <- ggplot(all_dat) + geom_point(aes(date, n)) + xlab("Date") + ylab("Daily crimes") + geom_line(aes(date, predict(gam5, type = "response", newdata = all_dat), colour = Type), size = 2, alpha = 0.4) + ggtitle("Daily GAM") + theme(legend.position = c(0.9, 0.9), legend.background = element_rect(fill="lightgrey", size=0.5, linetype="solid"), legend.title = element_text(size = 13), legend.text = element_text(size = 10))
+
+
+RMSE5 <- rmse_loss(predict(gam5, type = "response", newdata = test_dat), test_dat$n)
+RMSE5
+
+R2_5 <- r_squared(predict(gam5, type = "response", newdata = test_dat), test_dat$n)
+R2_5
+
+plot(predict(gam5, type = "response", newdata = test_dat), test_dat$n)
+abline(b = 1, a = 0, col = "red")
+
+gam_metrics <- data.frame(RMSE = c(RMSE1, RMSE2, RMSE3, RMSE4, RMSE5), R2 = c(R2_1, R2_2, R2_3, R2_4, R2_5))
+
+xtable(gam_metrics)
+
+ggsave("../plots/best_gam_plot.pdf", plot = best_gam_plot, width = 9.99, height = 6.45, units = "in")
+```
+
+```{r}
+spatial_train <- gam_train %>% 
+  mutate(community_area = factor(community_area)) %>%
+  count(month, year, community_area, fbi_code) %>%
+  arrange(year, month, community_area)
+
+# Construct test data set
+spatial_test <- gam_test %>% 
+  mutate(community_area = factor(community_area)) %>%
+  count(month, year, community_area, fbi_code) %>%
+  arrange(year, month, community_area)
+
+# Train GAM
+wGAM_com <- PoissonGAM$new(time_period = "month", region = "community_area",
+                     crime_type = "fbi_code", include_nb = TRUE)
+
+metrics <- list(rmse_loss, r_squared)
+
+# Fit using gam_train as the dataset 
+X <- spatial_train %>% select(-n)
+y <- spatial_train$n
+
+kfold_cv(wGAM_com, X = X, y = y, error_funcs = metrics, k = 2, n_reps = 1, parallel = TRUE, n_threads = 5)
+```
