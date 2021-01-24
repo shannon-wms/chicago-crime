@@ -12,8 +12,6 @@ knitr::opts_knit$set(root.dir = paste0(rprojroot::find_rstudio_root_file(), "/ch
 
 # Introduction
 
-This lab notebook contains the analyses undertaken as part of the COMPASS TB1 group project. We will be working on the Chicago crime data set, which contains information on incidents reported in Chicago.
-
 In this lab notebook we present the analyses undertaken as part of the Compass TB1 group project. We focus on a large, open source dataset provided by the City of Chicago consisting of reported incidents of crime from 2001 to present day, as reported by the Chicago Police Department. The dataset can be obtained from the website \url{https://data.cityofchicago.org/Public-Safety/Crimes-2001-to-Present/ijzp-q8t2}. 
 
 The notebook will be broken up into four sections:
@@ -22,7 +20,7 @@ The notebook will be broken up into four sections:
 
 2. Classification: Predicting whether a reported crime led to the arrest of a suspect. We consider three different discriminative classifiers: logistic regression, support vector machines, and random forests.
 
-3. Prediction: Predicting the number of crimes which occur in a given region over a specified time period (of a given type, if desired), through interpolation. We consider kernel ridge regression and generalised additive models (GAMs).
+3. Predicting the number of crimes by interpolation: Predicting the number of crimes which occur in a given region over a specified time period (of a given type, if desired), through interpolation. We consider kernel ridge regression and generalised additive models (GAMs).
 
 4. Forecasting: Forecasting the number of crimes which occur in a given region over a specified time period (of a given type, if desired), based on previous time-stamped data. Again, we consider the use of GAMs.
 
