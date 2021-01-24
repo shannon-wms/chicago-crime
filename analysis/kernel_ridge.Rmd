@@ -14,10 +14,7 @@ library(tidyverse)
 library(data.table)
 library(lubridate)
 library(sf)
-# library(rgdal)
-# library(ggmap)
-
-devtools::load_all("../chigcrim/")
+library(chigcrim)
 set.seed(1)
 ```
 

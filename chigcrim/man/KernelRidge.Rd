@@ -122,6 +122,7 @@ Predicts on an X matrix (test or train)
 }
 \subsection{Returns}{
 predictions A vector of predicted values.
+Checks arguments are defined correctly
 Gives the kernel function with hyperparameters set.
 Radial basis function kernel function (compares matrix rows to vector)
 Polynomial kernel function (compares matrix rows to vector)

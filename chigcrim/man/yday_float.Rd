@@ -10,8 +10,8 @@ yday_float(timestamp)
 \item{timestamp}{Date in POSIXct}
 }
 \value{
-Floating point numbers
+Floating point numbers between 1 and 366.
 }
 \description{
-Convert timestamp to float in 1-366
+Convert timestamp to floating point number between 1 and 366 representing day of year.
 }
