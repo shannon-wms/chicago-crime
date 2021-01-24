@@ -62,8 +62,8 @@ In order to make sure that tests and checks were run on a regular basis, continu
 
 # Classification
 
-```{r, message=FALSE}
-# Load our package
+```{r, message = FALSE}
+# Load required packages
 library(chigcrim)
 
 # Use seed to ensure reproducibility
@@ -99,9 +99,16 @@ For each classifier, we will use repeated $k$-fold cross validation to obtain me
 
 Due to the time and computational limitations involved, we shall train the models on a subset of the data from the year 2019.
 
-```{r, cache = TRUE}
+```{r, eval = FALSE}
 # Load 2019 data to build classification models
 df <- load_data(year = 2019, strings_as_factors = FALSE)
+```
+
+```{r, include = FALSE}
+df <- readRDS("temp_data/data19.rds")
+```
+
+```{r}
 print(as.data.frame(head(df)))
 ```
 
@@ -140,7 +147,8 @@ remove_features <- c("id", "year", "case_number", "primary_type", "description",
                      "date", "district", "beat", "ward", "block")
 
 # Add more time features, remove missing values and convert columns to factor
-df %<>% mutate(day = yday(df$date), time = hour(df$date) + minute(df$date)/60) %>%
+df %<>% mutate(day = yday(df$date), 
+               time = hour(df$date) + minute(df$date) / 60) %>%
   select(-all_of(remove_features)) %>%
   filter(complete.cases(df)) %>%
   mutate(location_description = as.factor(location_description),
@@ -158,18 +166,25 @@ We will first consider a logistic regression classifier, which is a linear class
 # Split into data matrix and response vector
 X <- df %>% select(-arrest)
 y <- df$arrest
+```
 
+```{r, eval = FALSE}
 # Initialise new LogisticRegression object
 lr <- LogisticRegression$new(solver = "BFGS",
                              control = list(maxit = 1000, reltol = 1e-4),
                              rounding = TRUE)
 
 # Find repeated cross-validation error
-system.time(lr_results <- kfold_cv(lr, X, y, metrics, k = 5, n_reps = 5,
-                                   parallel = TRUE, n_threads = 5))
+lr_results <- kfold_cv(lr, X, y, metrics, k = 5, n_reps = 5,
+                       parallel = TRUE, n_threads = 5)
 
-as_tibble(lr_results)
+```
 
+```{r, include = FALSE}
+lr_results <- readRDS("temp_data/lr_results.rds")
+```
+
+```{r}
 # Export results for use in report
 xtable::xtable(as_tibble(lr_results), digits = 4)
 ```
@@ -188,11 +203,21 @@ y_subset <- y[index]
 In order to obtain optimal values for `cost` and `gamma` to be provided to `svm` for training the SVM, we utilise the built-in generic function `tune` from **e1071** which performs a grid search over given parameter ranges.
 
 ```{r, eval = FALSE}
-# Not run due to time constraints, included for completeness
-e1071::tune(svm, y_subset ~ ., data = cbind(X_subset, y_subset), 
-            ranges = list(cost = 2^(-2:5), gamma = 2^(-15:-4)),
-            tunecontrol = tune.control(nrepeat = 3, sampling = "cross", cross = 5),
-            kernel = "radial", type = "C-classification")
+svm_tuned <- tune(e1071::svm, y_subset ~ ., data = cbind(X_subset, y_subset), 
+                  ranges = list(cost = 2^(-2:5), gamma = 2^(-15:-4)),
+                  tunecontrol = tune.control(nrepeat = 3, 
+                                             sampling = "cross", 
+                                             cross = 5),
+                  kernel = "radial", type = "C-classification")
+```
+
+```{r, include = FALSE}
+svm_tuned <- readRDS("temp_data/svm_tuned.rds")
+svm_results <- readRDS("temp_data/svm_results.rds")
+```
+
+```{r}
+svm_tuned
 ```
 
 We obtain optimal values of `2^4` for `cost` and `2^-5` for `gamma`, which we use to train our SVM.
@@ -200,17 +225,18 @@ We obtain optimal values of `2^4` for `cost` and `2^-5` for `gamma`, which we us
 ```{r, cache = TRUE}
 # Initialise new SupportVectorMachine object
 svm <- SupportVectorMachine$new(kernel = "radial")
+```
 
+```{r, eval = FALSE}
 # Run repeated 5-fold cross-validation to evaluate performance
-system.time(svm_results <- kfold_cv(svm, X_subset, y_subset, metrics, k = 5, 
-                                    n_reps = 5, parallel = FALSE,
-                                    n_threads = 5, gamma = 2^-5, cost = 2^4))
+svm_results <- kfold_cv(svm, X_subset, y_subset, metrics, k = 5, 
+                        n_reps = 5, parallel = FALSE,
+                        n_threads = 5, gamma = 2^-5, cost = 2^4)
+```
 
+```{r, cache = TRUE}
 # Export results for use in report
 xtable::xtable(as_tibble(svm_results), digits = 4)
-
-# Fit the model and predict on 2019 data
-svm$fit(X_subset, y_subset, gamma = 2^-5, cost = 2^4, kernel = "radial")
 ```
 
 ### Random Forest
@@ -224,11 +250,19 @@ X_subset <- select(X_subset, - "community_area")
 
 # Initialise new RandomForest object
 rf <- RandomForest$new()
+```
 
+```{r, include = FALSE}
+rf_results <- readRDS("temp_data/rf_results.rds")
+```
+
+```{r, eval = FALSE}
 # Run repeated 5-fold cross-validation to evaluate performance
-system.time(rf_results <- kfold_cv(rf, X_subset, y_subset, metrics, k = 5, 
-                                   n_reps = 5, parallel = TRUE, n_threads = 5))
+rf_results <- kfold_cv(rf, X_subset, y_subset, metrics, k = 5, 
+                       n_reps = 5, parallel = TRUE, n_threads = 5)
+```
 
+```{r, cache = TRUE}
 # Export results for use in report
 xtable::xtable(as_tibble(rf_results), digits = 4)
 ```
@@ -241,12 +275,12 @@ Logistic regression had higher sensitivity than the support vector machine, and 
 
 Being an ensemble model, the random forest unsurprisingly performed the best based on all three metrics. It is likely that the random forest could be improved by training on a larger subset of the data and optimising the hyperparameters. The downside of using a random forest is that, as a black-box method, it does not provide any inference as to how the features are used within the model. We are at least able to look at how many times each feature was chosen as a splitting point in all of the trees, providing us with some information as to the importance of each of the features. 
 
-```{r, warning=FALSE, cache = TRUE}
+```{r, warning = FALSE, cache = TRUE}
 # Fit model with optimal hyper parameters
-rf$fit(X, y)
+rf$fit(X_subset, y_subset)
 
 # Get importance of features from model
-imp <- importance(rf$fitted_model)
+imp <- randomForest::importance(rf$fitted_model)
 imp <- tibble(feature = row.names(imp), mean_decrease_gini = as.vector(imp))
 
 imp <- imp %>%
@@ -306,7 +340,7 @@ The kernel ridge regression implementation includes a linear kernel (equivalent 
 
 We first consider a simple, single-dimensional model, using only the number of crimes per week as the predictor.
 
-```{r}
+```{r, include = FALSE}
 df <- readRDS("temp_data/date_data.rds")
 ```
 
@@ -314,7 +348,7 @@ df <- readRDS("temp_data/date_data.rds")
 df <- load_data(select = "date")
 ```
 
-```{r, cache = TRUE}
+```{r}
 df %<>% 
   mutate(date = date(date), week = week(date), year = year(date)) %>%
   filter(week < 53) %>%
@@ -327,9 +361,9 @@ df %<>%
 print(as.data.frame(head(df)))
 ```
 
-Below I will use 5-fold cross validation to choose the bandwidth hyperparameter for the radial basis function kernel.
+We shall use a grid search with 5-fold cross validation to choose the bandwidth hyperparameter for the radial basis function kernel.
 
-```{r warning = FALSE, cache = TRUE}
+```{r warning = FALSE,}
 X <- as.matrix(df$cumulative_week)
 X <- scale(X)
 y <- df$n
@@ -370,7 +404,7 @@ bandwidth_plot
 cv_results_best <- readRDS("temp_data/cv_results_best1.rds")
 kr_best <- readRDS("temp_data/kr_best1.rds")
 bandwidth_plot <- readRDS("temp_data/cv_plot1.rds")
-cv_plot1 + xlab("Bandwidth") + ylab("RMSE")
+bandwidth_plot + xlab("Bandwidth") + ylab("RMSE")
 ```
 
 We can see that a bandwidth parameter value of `r kr_best$A` gave the lowest root mean square error. We can look at the results for the three repeats of 5-fold cross-validation for this model:
@@ -384,7 +418,9 @@ The model performs very well, explaining `r round(mean(cv_results_best$r2), 4)*1
 As this is single-dimensional, we can plot the prediction function for the best model.
 
 ```{r}
-y_hat <- kr_best$fit(X, y)
+# Fit the final kernel ridge regression model
+kr_best$fit(X, y)
+# Obtain predictions on the dataset
 y_hat <- kr_best$predict(X)
 
 # Plot output
@@ -438,12 +474,12 @@ centroids <- community_bounds %>%
   as_tibble() %>%
   mutate(community_area = 1:nrow(.))
 
-p2 <- ggplot() +
+centroids_plot <- ggplot() +
   geom_sf(data = community_bounds) +
   geom_point(data = centroids, aes(X, Y), size = 5, colour = "steelblue1") +
   geom_text(data = centroids, aes(X, Y, label = community_area)) +
   theme_void()
-p2
+centroids_plot
 ```
 
 We shall consider data from the years 2016 to 2020.
@@ -456,7 +492,7 @@ df <- readRDS("temp_data/data1620.rds")
 df <- load_data(c(2016, 2020), strings_as_factors = FALSE, na_omit = TRUE)
 ```
 
-```{r, cache = TRUE, message = FALSE}
+```{r, message = FALSE}
 df %<>% select(date, community_area) %>%
   mutate(date = date(date), year = year(date), month = month(date)) %>%
   group_by(year, month) %>%
@@ -511,7 +547,7 @@ band_plot
 cv_results_best <- readRDS("temp_data/cv_results_best2.rds")
 kr_best <- readRDS("temp_data/kr_best2.rds")
 bandwidth_plot <- readRDS("temp_data/cv_plot2.rds")
-cv_plot1 + xlab("Bandwidth") + ylab("RMSE")
+bandwidth_plot + xlab("Bandwidth") + ylab("RMSE")
 ```
 
 We obtain an optimal value of `r kr_best$A` which minimises the mean square error. Again, we can look at the results for the three repeats of 5-fold cross-validation for this model:
