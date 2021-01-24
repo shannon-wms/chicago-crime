@@ -255,7 +255,9 @@ imp <- imp %>%
 
 # Plot importance
 imp_plot <- ggplot(aes(x = feature, y = mean_decrease_gini), data = imp) + 
-  geom_col(fill = "steelblue2") + ylab("Mean decrease in Gini")
+  geom_col(fill = "steelblue2") + ylab("Mean decrease in Gini") + 
+  scale_x_discrete(labels = c("FBI Code", "Y-Coordinate", "Time", "X-Coordinate", 
+                              "Day", "Location Description", "Domestic"))
 imp_plot
 ```
 
@@ -263,13 +265,13 @@ The plot suggests that the most "important" feature is `fbi_code`, which is some
 
 # Prediction
 
-In this section we consider the regression tesk of predicting the number of reported crimes in a given area over a specified time period. We will look at a kernel ridge regression model before moving on to generalised additive models.
+In this section we consider the regression tesk of predicting the number of reported incidents of crime in a given region over a specified time period. We will look at a kernel ridge regression model before moving on to generalised additive models.
 
 ```{r, include = FALSE}
 rm(list = ls())
 ```
 
-```{r, message=FALSE}
+```{r, message = FALSE}
 # Load required packages
 library(chigcrim)
 library(rgdal)
