@@ -7,7 +7,7 @@ output: pdf_document
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = paste0(rprojroot::find_rstudio_root_file(), "/chigcrim"))
+knitr::opts_knit$set(root.dir = paste0(rprojroot::find_rstudio_root_file()))
 ```
 
 # Introduction
@@ -20,19 +20,19 @@ The notebook will be broken up into four sections:
 
 2. Classification: Predicting whether a reported crime led to the arrest of a suspect. We consider three different discriminative classifiers: logistic regression, support vector machines, and random forests.
 
-3. Predicting the number of crimes by interpolation: Predicting the number of crimes which occur in a given region over a specified time period (of a given type, if desired), through interpolation. We consider kernel ridge regression and generalised additive models (GAMs).
+3. Prediction: Predicting the number of reported crimes which occur in a given region over a specified time period (of a given type, if desired), through interpolation. We consider kernel ridge regression and generalised additive models (GAMs).
 
 4. Forecasting: Forecasting the number of crimes which occur in a given region over a specified time period (of a given type, if desired), based on previous time-stamped data. Again, we consider the use of GAMs.
 
-# Workflow and computational techniques
+# Workflow and Computational Techniques
 
 In the development of the package for this project, we utilised many computational techniques, that are outlined below.
 
-## Object-oriented programming
+## Object-Oriented Programming
 
 We decided to use an object oriented approach to constructing models. Specifically, we made use of the `R6Class` from the **R6** package. `R6` objects are mutable and use an object oriented approach similar to most programming languages (unlike the more basic `S3` and `S4` classes). `R6` classes are very similar to reference classes, although generally `R6` classes are preferred. This is for a variety of reasons, including the fact that `R6` classes are much faster, and they handle fields in a neater way by putting them in a separate environment. More information on this can be found [here](https://adv-r.hadley.nz/r6.html). When building models, a model could be fitted using `model$fit(X, y)`, and predictions made with `model$predict(X)`. It is worth noting that this use of `fit` and `predict` methods in object-oriented machine learning packages is used elsewhere, particularly in the **Python** package **scikit-learn**. The key advantage of this approach is that it abstracts away the underlying complexities, and creates a consistent structure that makes it easier to compare different models. 
 
-## Parallel programming
+## Parallel Programming
 
 Parallel programming was used to speed up slow code, utilising the package **doParallel** which calls the packages **parallel** and **foreach**. In particular, we implemented a parallel cross-validation function `kfold_cv`, which facilitated more accurate and faster assessment of model performance.
 
@@ -40,11 +40,11 @@ Parallel programming was used to speed up slow code, utilising the package **doP
 
 In order to document functions in the package, we made use of **roxygen2**. This package automatically creates the `.Rd` documentation files for functions (or classes), from comments added above the function definitions. As well as being efficient, this allows the code and documentation to coexist, meaning it is easier to remember to update the documentation.
 
-## API querying
+## API Querying
 
 The Chicago Crime dataset is updated on a daily basis and, at the time of writing, contains over 7 million rows of data. For each reported incident, a total of 22 features are recorded (for a full list of features and their descriptions see the City of Chicago website). We elected not to download the dataset in full and include this in the package as it would consume a significant amount of storage, and quickly become out of date. Instead, we utilised the **RSocrata** package which allows easy interaction with the online open data portal. The wrapper `load_data` allows the end user to directly download the dataset into the R environment, via the function `read.socrata`. `load_data` provides functionality for filtering by year, limiting the number of data points received, and omitting missing/NA values.
 
-## Testing and continuous integration
+## Testing and Continuous Integration
 
 For tests, we used the **testthat** package. This simply creates a new directory `./tests/testthat/` in which the user can define tests for the package functions. Although the tests can be run alone, generally, we made use of the package **rcmdcheck**. This contains the function `rcmdcheck`, which not only runs the tests, but also carries out a more sophisticated check. Some examples of what is checked are listed below:
 
@@ -62,7 +62,7 @@ In order to make sure that tests and checks were run on a regular basis, continu
 
 # Classification
 
-```{r message=FALSE}
+```{r, message=FALSE}
 # Load our package
 library(chigcrim)
 
@@ -72,7 +72,7 @@ set.seed(1)
 
 In this section we consider the binary classification task of predicting whether a suspect is arrested, given data on the reported crime. Three models will be investigated: logistic regression, support vector machines and random forest classifiers.
 
-## Assessing performance
+## Assessing Performance
 
 To assess performance, three metrics will be used: the overall accuracy, the sensitivity and the specificity. These are defined as follows:
 
@@ -134,7 +134,7 @@ Below we outline our feature selection and data pre-processing choices. These de
 df$fbi_code <- otherise(df$fbi_code, 500)
 df$location_description <- otherise(df$location_description, 1000)
 
-# List of features for removal, EDA showed not necessary
+# List of features for removal
 remove_features <- c("id", "year", "case_number", "primary_type", "description",
                      "iucr", "updated_on", "latitude", "longitude",
                      "date", "district", "beat", "ward", "block")
@@ -231,7 +231,6 @@ system.time(rf_results <- kfold_cv(rf, X_subset, y_subset, metrics, k = 5,
 
 # Export results for use in report
 xtable::xtable(as_tibble(rf_results), digits = 4)
-
 ```
 
 ## Model Comparisons
@@ -256,7 +255,9 @@ imp <- imp %>%
 
 # Plot importance
 imp_plot <- ggplot(aes(x = feature, y = mean_decrease_gini), data = imp) + 
-  geom_col(fill = "steelblue2") + ylab("Mean decrease in Gini")
+  geom_col(fill = "steelblue2") + ylab("Mean decrease in Gini") + 
+  scale_x_discrete(labels = c("FBI Code", "Y-Coordinate", "Time", "X-Coordinate", 
+                              "Day", "Location Description", "Domestic"))
 imp_plot
 ```
 
@@ -264,13 +265,13 @@ The plot suggests that the most "important" feature is `fbi_code`, which is some
 
 # Prediction
 
-In this section we consider the regression tesk of predicting the number of reported crimes in a given area over a specified time period. We will look at a kernel ridge regression model before moving on to generalised additive models.
+In this section we consider the regression tesk of predicting the number of reported incidents of crime in a given region over a specified time period. We will look at a kernel ridge regression model before moving on to generalised additive models.
 
 ```{r, include = FALSE}
 rm(list = ls())
 ```
 
-```{r, message=FALSE}
+```{r, message = FALSE}
 # Load required packages
 library(chigcrim)
 library(rgdal)
@@ -280,7 +281,7 @@ library(ggmap)
 set.seed(1)
 ```
 
-## Assessing performance
+## Assessing Performance
 
 To assess performance, two metrics will be used: the root mean squared error (RMSE) and R-squared ($R^2$). These are defined as follows:
 
@@ -332,6 +333,9 @@ Below I will use 5-fold cross validation to choose the bandwidth hyperparameter 
 X <- as.matrix(df$cumulative_week)
 X <- scale(X)
 y <- df$n
+```
+
+```{r, eval = FALSE}
 # Candidate values for the bandwidth of the radial basis function
 bandwidth <- c(0.1, 1, 5, 10, 100)
 # Initisalise vector of RMSE
@@ -357,8 +361,16 @@ rbf_results <- data.frame(bandwidth, rmse = rmse_vec)
 bandwidth_plot <- ggplot(rbf_results) +
   geom_line(aes(x = bandwidth, y = rmse)) +
   scale_x_log10() +
-  scale_y_log10()
+  scale_y_log10() +
+  xlab("Bandwidth") + ylab("RMSE")
 bandwidth_plot
+```
+
+```{r, echo = FALSE, cache = TRUE}
+cv_results_best <- readRDS("temp_data/cv_results_best1.rds")
+kr_best <- readRDS("temp_data/kr_best1.rds")
+bandwidth_plot <- readRDS("temp_data/cv_plot1.rds")
+cv_plot1 + xlab("Bandwidth") + ylab("RMSE")
 ```
 
 We can see that a bandwidth parameter value of `r kr_best$A` gave the lowest root mean square error. We can look at the results for the three repeats of 5-fold cross-validation for this model:
@@ -381,8 +393,7 @@ df$y_hat <- y_hat
 week_plot <- ggplot(df) + 
   geom_point(aes(x = week_start, y = n)) +
   geom_line(aes(x = week_start, y = y_hat), colour = "steelblue2", size = 1) +
-  scale_x_continuous(breaks = seq(2001, 2021, by = 2))
-  labs(x = "Year", y = "Number of reported crimes")
+  labs(x = "Year", y = "Number of reported incidents")
 week_plot
 ```
 
@@ -408,14 +419,18 @@ week_plot + geom_line(data = extra_df, aes(extra_dates, extra_y_hat), colour = "
 
 The cycles are captured solely due to being able to interpolate locally between points. When extrapolating with a radial basis function kernel, no cycles are predicted, so the out-of-sample accuracy drops substantially. The cross-validation error found is only applicable if the new data followed the same distribution, and this is simply not the case when considering future data.
 
-## Monthly predictions with a spatial component
+### Monthly Predictions with a Spatial Component
 
 The previous example aggregated counts of reported crime over weeks, and as such used only a single-dimensional feature vector. We look at extending this analysis by aggregating over an additional spatial component. In the ensuing analysis, we consider predicting the reported crime counts over a month, aggregated over the community areas.
 
 The positions of the community areas will be represented by the coordinates of their centroids, which are extracted from their shapefiles.
 
-```{r warning = FALSE, message = FALSE}
+```{r, include = FALSE}
 rm(list = ls())
+```
+
+```{r warning = FALSE, message = FALSE}
+data("community_bounds")
 centroids <- community_bounds %>%
   arrange(as.integer(area_numbe)) %>%
   st_centroid() %>%
@@ -430,10 +445,11 @@ p2 <- ggplot() +
   theme_void()
 p2
 ```
-We shall consider data from the years 2017 to 2020.
+
+We shall consider data from the years 2016 to 2020.
 
 ```{r, include = FALSE}
-df <- readRDS("temp_data/date1720.rds")
+df <- readRDS("temp_data/data1620.rds")
 ```
 
 ```{r eval = FALSE}
@@ -460,6 +476,9 @@ X <- df %>% ungroup() %>%
 # Scale the parameters
 X <- scale(X)
 y <- df$n
+```
+
+```{r, eval = FALSE}
 # Bandwidth candidates
 bandwidth <- c(0.1, 1, 5, 10, 100)
 
@@ -488,6 +507,13 @@ band_plot <- ggplot(rbf_results) +
 band_plot
 ```
 
+```{r, echo = FALSE}
+cv_results_best <- readRDS("temp_data/cv_results_best2.rds")
+kr_best <- readRDS("temp_data/kr_best2.rds")
+bandwidth_plot <- readRDS("temp_data/cv_plot2.rds")
+cv_plot1 + xlab("Bandwidth") + ylab("RMSE")
+```
+
 We obtain an optimal value of `r kr_best$A` which minimises the mean square error. Again, we can look at the results for the three repeats of 5-fold cross-validation for this model:
 
 ```{r}
@@ -502,21 +528,25 @@ Although being higher dimensional so difficult to plot, we can plot the predicte
 index <- sample(1:nrow(X), round(0.2 * nrow(X)))
 
 X_train <- X[-index, , drop = FALSE]
-y_train <- y[-index, , drop = FALSE]
+y_train <- y[-index]
 X_test <- X[index, ]
 y_test <- y[index]
 
-# Refit best model
+# Refit best model on full training dataset
 kr_best$fit(X_train, y_train)
 y_hat <- kr_best$predict(X_test)
 
-p3 <- qplot(y_test, y_hat, geom = "point") +
+pred_plot <- qplot(y_test, y_hat, geom = "point") +
   geom_abline(slope = 1, intercept = 0, colour = "steelblue2") +
-  labs(x = "Actual number of crimes", y = "Predicted number of crimes") +
-  scale_y_continuous(breaks=c(0, 500, 1000, 1500, 2000))
-p3
+  labs(x = "Actual number of reported incidents", y = "Predicted number of reported incidents") +
+  scale_y_continuous(breaks = seq(0, 2000, by = 500))
+pred_plot
 ```
 
-We can see a good association between the actual number of crimes in a given month and community area, and the predicted number of crimes on this held-out data.
+The plot illustrates strong predictive power, particularly when the number of reported incidents is smaller. We do note the drop-off at the higher end of actual reported incidents, suggesting the model tends to under-predict in these cases. This is to be expected somewhat, as extremely high counts are rare and the model has not been trained on a dataset containing such high counts.
 
-We can see that kernel ridge regression provides prediction functions that explain a high proportion of the variance. A major limitation of this method for predicting the number of crimes is that it would be primarily be useful for interpolation, rather than extrapolation, for the reasons outlined above. In the subsequent section, we explore generalised additive models, which form a more principled approach for forecasting the number of crimes.
+We conclude this section by noting that kernel ridge regression can provide prediction functions that explain a high proportion of the variance. However, a major limitation of this method in our case is that it would be primarily be useful for interpolation, rather than extrapolation, for the reasons outlined above. 
+
+In the subsequent section, we explore generalised additive models, which form a more principled approach for forecasting the number of crimes.
+
+## Generalised Additive Models
