@@ -13,6 +13,7 @@ knitr::opts_knit$set(root.dir = paste0(rprojroot::find_rstudio_root_file(), "/ch
 ## Imports
 
 ```{r}
+# Load required packages
 library(mgcv)
 library(tidyverse)
 library(lubridate)
@@ -25,7 +26,7 @@ devtools::load_all()
 For the training data we will use historical data from 2016 - 2018. We will then predict on the data from 2019 to test the model.
 ```{r, cache = TRUE}
 # Downoad training data
-crime_train <- load_data(c(2016, 2018), strings_as_factors = TRUE)
+crime_train <- load_data(c(2015, 2018), strings_as_factors = TRUE)
 # Download test data
 crime_test <- load_data(2019, strings_as_factors = TRUE)
 ```
@@ -63,24 +64,45 @@ test_dat <- gam_test %>% count(yday, year, date) %>% arrange(year, yday)
 We now build the GAMs using the `mgcv` package.
 
 ```{r}
+# Baseline GAM
 gam1 <- gam(n ~ s(as.numeric(yday), bs = "cc") + year, data = train_dat, 
             family = "poisson")
-plot(train_dat$n, predict(gam1, type = "response"))
-abline(a = 0, b = 1, col = "red")
 
-plot(train_dat$date, train_dat$n)
-points(train_dat$date, predict(gam1, type = "response"), col = "red")
-
+# Store type of each data 
+train_dat$Type <- "Training data"
+test_dat$Type <- "Test data"
 all_dat <- rbind(train_dat, test_dat)
-plot(all_dat$date, all_dat$n, xlab = "Date", ylab = "Daily crimes")
-points(all_dat$date, predict(gam1, type = "response", newdata = all_dat), 
-       col = c(rep("red", nrow(train_dat)), rep("blue", nrow(test_dat))))
-abline(v = date("2019-01-01"), lty = "dashed")
+all_dat$Type <- as.factor(all_dat$Type)
+
+# Create plot for baseline model
+base_gam_plot <- ggplot(all_dat) + geom_point(aes(date, n)) + xlab("Date") + ylab("Daily crimes") + geom_line(aes(date, predict(gam1, type = "response", newdata = all_dat), colour = Type), size = 2) + ggtitle("Baseline GAM") + theme(legend.position = c(0.9, 0.9), legend.background = element_rect(fill="lightgrey", size=0.5, linetype="solid"), legend.title = element_text(size = 13), legend.text = element_text(size = 10))
+
+# Find accuracy
+RMSE1 <- rmse_loss(predict(gam1, type = "response", newdata = test_dat), test_dat$n)
+RMSE1
+
+R2_1 <- r_squared(predict(gam1, type = "response", newdata = test_dat), test_dat$n)
+R2_1
+
+ggsave("../plots/base_gam_plot.pdf", plot = base_gam_plot, width = 9.99, height = 6.45, units = "in")
+
 ```
 
 ## Feature creation
 
-There are several features that may be of interest, whether a day is a weekend or not, the number of crimes over the previous month, the number of crimes on the same day of the previous year. 
+There are several features that may be of interest, whether a day is a weekend or not, the number of crimes over the previous month, the number of crimes on the same day of the previous year. We make tables of the days with the least and most daily crimes.
+
+```{r}
+most_crimes <- train_dat %>% arrange(by = desc(n))
+most_crimes$date <- as.character(most_crimes$date) #xtable doesn't handle date format
+xtable(head(most_crimes[,-5]), )
+```
+
+```{r}
+least_crimes <- train_dat %>% arrange(by = n)
+least_crimes$date <- as.character(least_crimes$date) #xtable doesn't handle date format
+xtable(head(least_crimes[,-5]), )
+```
 
 ```{r}
 add_prev_day <- function(dat, start_date) {
@@ -125,58 +147,100 @@ add_month <- function(dat) {
   return(dat)
 }
 
-add_is_jan <- function(dat) {
-  dat$is_jan <- month(dat$date) == 1
-  return(dat)
-}
-
 add_week <- function(dat) {
   dat$week <- week(dat$date)
   return(dat)
 }
 
-train_dat <- add_prev_day(train_dat, "2016-01-01")
+
+
+# Add features to train data
+train_dat <- add_prev_day(train_dat, "2015-01-01")
 train_dat <- add_dow(train_dat)
 train_dat <- add_is_fom(train_dat)
 train_dat <- add_is_christmas(train_dat)
 train_dat <- add_is_NYD(train_dat)
 train_dat <- add_month(train_dat)
-train_dat <- add_is_jan(train_dat)
 train_dat <- add_week(train_dat)
+
+data_2014 <- load_data(2014, strings_as_factors = TRUE)
+data_2014 <- data_2014 %>% convert_dates(exclude = "hour") %>% count(year, date) %>% arrange(year)
+
+train_dat[1, "n_pre"] <- data_2014[data_2014$date == "2014-12-31", "n"][1,] #fill in previous year manually
+
+# Add features to test data
+test_dat <- add_prev_day(test_dat, "2019-01-01")
+test_dat <- add_dow(test_dat)
+test_dat <- add_is_fom(test_dat)
+test_dat <- add_is_christmas(test_dat)
+test_dat <- add_is_NYD(test_dat)
+test_dat <- add_month(test_dat)
+test_dat <- add_week(test_dat)
+test_dat[1, "n_pre"] <- train_dat[train_dat$date == "2018-12-31", "n"] #fill in previous year manually
+
 ```
 
 ```{r}
 gam2 <- gam(n ~ s(as.numeric(yday), bs = "cc") + n_pre, data = train_dat, family = "poisson")
-plot(train_dat$date, train_dat$n, xlim = c(date("2016-02-01"), date("2016-02-28")))
-points(train_dat$date[-1], predict(gam2, type = "response"), col = "red")
-plot(train_dat$date, train_dat$n)
-points(train_dat$date[-1], predict(gam2, type = "response"), col = "red")
+
+gam_plot2 <- ggplot(all_dat) + geom_point(aes(date, n)) + xlab("Date") + ylab("Daily crimes") + geom_line(aes(date, predict(gam2, type = "response", newdata = all_dat), colour = Type), size = 2, alpha = 0.4) + ggtitle("Daily GAM") + theme(legend.position = c(0.9, 0.9), legend.background = element_rect(fill="lightgrey", size=0.5, linetype="solid"), legend.title = element_text(size = 13), legend.text = element_text(size = 10))
+
+RMSE2 <- rmse_loss(predict(gam2, type = "response", newdata = test_dat), test_dat$n)
+RMSE2
+
+R2_2 <- r_squared(predict(gam2, type = "response", newdata = test_dat), test_dat$n)
+R2_2
 
 ```
 
 ```{r}
 gam3 <- gam(n ~ s(as.numeric(yday), bs = "cc") + s(as.numeric(dow), bs = "cr", k = 5) + n_pre, data = train_dat, family = "poisson")
-plot(train_dat$date, train_dat$n, xlim = c(date("2016-02-01"), date("2016-02-28")))
-points(train_dat$date[-1], predict(gam3, type = "response"), col = "red")
-plot(train_dat$date, train_dat$n)
-points(train_dat$date[-1], predict(gam3, type = "response"), col = "red")
+
+gam_plot3 <- ggplot(all_dat) + geom_point(aes(date, n)) + xlab("Date") + ylab("Daily crimes") + geom_line(aes(date, predict(gam3, type = "response", newdata = all_dat), colour = Type), size = 2, alpha = 0.4) + ggtitle("Daily GAM") + theme(legend.position = c(0.9, 0.9), legend.background = element_rect(fill="lightgrey", size=0.5, linetype="solid"), legend.title = element_text(size = 13), legend.text = element_text(size = 10))
+RMSE3 <- rmse_loss(predict(gam3, type = "response", newdata = test_dat), test_dat$n)
+RMSE3
+
+R2_3 <- r_squared(predict(gam3, type = "response", newdata = test_dat), test_dat$n)
+R2_3
+
+
 ```
 ```{r}
 gam4 <- gam(n ~ s(as.numeric(yday), bs = "cc") + as.factor(dow) + n_pre, data = train_dat, family = "poisson")
-plot(train_dat$date, train_dat$n, xlim = c(date("2017-12-01"), date("2018-02-28")))
-points(train_dat$date[-1], predict(gam4, type = "response"), col = "red")
-plot(train_dat$date, train_dat$n)
-points(train_dat$date[-1], predict(gam4, type = "response"), col = "red")
+
+gam_plot4 <- ggplot(all_dat) + geom_point(aes(date, n)) + xlab("Date") + ylab("Daily crimes") + geom_line(aes(date, predict(gam4, type = "response", newdata = all_dat), colour = Type), size = 2, alpha = 0.4) + ggtitle("Daily GAM") + theme(legend.position = c(0.9, 0.9), legend.background = element_rect(fill="lightgrey", size=0.5, linetype="solid"), legend.title = element_text(size = 13), legend.text = element_text(size = 10))
+
+RMSE4 <- rmse_loss(predict(gam4, type = "response", newdata = test_dat), test_dat$n)
+RMSE4
+
+R2_4 <- r_squared(predict(gam4, type = "response", newdata = test_dat), test_dat$n)
+R2_4
+
+
 ```
 
 ```{r}
+
 gam5 <- gam(n ~ s(as.numeric(yday), bs = "cc") + as.factor(dow) + n_pre + is_fom + is_christmas + 
-              is_jan + is_NYD + as.factor(week), data = train_dat, family = "poisson")
-plot(train_dat$date, train_dat$n, xlim = c(date("2016-02-01"), date("2016-02-28")))
-points(train_dat$date[-1], predict(gam5, type = "response"), col = "red")
-plot(train_dat$date, train_dat$n)
-points(train_dat$date[-1], predict(gam5, type = "response"), col = "red")
-plot(train_dat$date[-1], train_dat$n[-1] - predict(gam5, type = "response"))
+               is_NYD + as.factor(week) , data = train_dat, family = "poisson")
+
+best_gam_plot <- ggplot(all_dat) + geom_point(aes(date, n)) + xlab("Date") + ylab("Daily crimes") + geom_line(aes(date, predict(gam5, type = "response", newdata = all_dat), colour = Type), size = 2, alpha = 0.4) + ggtitle("Daily GAM") + theme(legend.position = c(0.9, 0.9), legend.background = element_rect(fill="lightgrey", size=0.5, linetype="solid"), legend.title = element_text(size = 13), legend.text = element_text(size = 10))
+
+
+RMSE5 <- rmse_loss(predict(gam5, type = "response", newdata = test_dat), test_dat$n)
+RMSE5
+
+R2_5 <- r_squared(predict(gam5, type = "response", newdata = test_dat), test_dat$n)
+R2_5
+
+plot(predict(gam5, type = "response", newdata = test_dat), test_dat$n)
+abline(b = 1, a = 0, col = "red")
+
+gam_metrics <- data.frame(RMSE = c(RMSE1, RMSE2, RMSE3, RMSE4, RMSE5), R2 = c(R2_1, R2_2, R2_3, R2_4, R2_5))
+
+xtable(gam_metrics)
+
+ggsave("../plots/best_gam_plot.pdf", plot = best_gam_plot, width = 9.99, height = 6.45, units = "in")
 ```
 
 # Discrete Spatial Data
@@ -184,7 +248,8 @@ plot(train_dat$date[-1], train_dat$n[-1] - predict(gam5, type = "response"))
 ```{r, cache = TRUE}
 library(sf)
 # Load the community areas boundaries
-com_bounds <- st_read("data/community_areas.shp", quiet = TRUE)
+data("community_bounds")
+com_bounds <- community_bounds
 com_bounds %<>% arrange(as.integer(area_numbe))
 com_bounds
 # Create a neighbours list
@@ -195,16 +260,44 @@ plot(st_geometry(com_bounds), border = "grey")
 plot(com_nb, coords, add = TRUE)
 
 # Construct training data set
-spatial_dat <- gam_train %>% 
+spatial_train <- gam_train %>% 
   mutate(community_area = factor(community_area)) %>%
   count(week, year, community_area) %>%
   arrange(year, week, community_area)
+
+# Construct test data set
+spatial_test <- gam_test %>% 
+  mutate(community_area = factor(community_area)) %>%
+  count(week, year, community_area) %>%
+  arrange(year, week, community_area)
+
 # Train GAM
 ctrl <- gam.control(nthreads = 8)
 gam_spat <- gam(n ~ s(as.numeric(week), bs = "cc") + 
       s(community_area, bs = "mrf", xt = list(nb = com_nb)),
-    data = spatial_dat, family = "poisson", control = ctrl)
+    data = spatial_train, family = "poisson", control = ctrl)
 summary(gam_spat)
+
+
+
+spatial_dat$residual <- spatial_dat$n - predict(gam_spat, type = "response")
+spatial_test$predicted <- predict(gam_spat, type = "response", newdata = spatial_test)
+spatial_dat
+
+
+com_area <- spatial_test %>% group_by(community_area) %>% summarise(n = sum(n), n_pred = sum(predicted))
+com_area$residual <- (com_area$n - com_area$n_pred)
+com_bounds$residual <- com_area$residual
+
+p <- ggplot(com_bounds) + geom_sf(aes(fill = residual, text = community)) + 
+  ggtitle("Crime frequency by community area") +
+  colorspace::scale_fill_continuous_sequential(5, palette = "Inferno") + theme_void() +
+  guides(fill = guide_colorbar(title = "Frequency")) +
+  scale_fill_gradientn(colors = colorspace::sequential_hcl(5, palette = "Inferno")[5:1], 
+                       breaks = seq(-1500, 1000, 500), limits = c(-1500, 1000))
+
+
+
 ```
 
 ```{r}
