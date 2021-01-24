@@ -108,7 +108,9 @@ head(df)
 
 ### Logistic Regression
 We will first consider a logistic regression classifier. This is a linear classifier. It calls the function `optim()` internally to minimize the cross-entropy/log-loss function using gradient based optimisation methods (here BFGS).
+
 ```{r time_it=TRUE, echo = T, eval = F}
+
 # Split into data matrix and response vector
 X <- df %>% select(-arrest)
 y <- df$arrest

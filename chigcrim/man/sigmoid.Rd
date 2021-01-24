@@ -13,7 +13,7 @@ sigmoid(z)
 float
 }
 \description{
-Computes sigmoid function using 1/(1 + exp(-z)).
+Computes value of sigmoid function at `z`.
 }
 \examples{
 sigmoid(0)

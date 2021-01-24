@@ -32,9 +32,9 @@ pred <- pg$predict(X_test)
 \describe{
 \item{\code{X_train}}{The training data matrix.}
 
-\item{\code{X_test}}{The test data matrix.}
-
 \item{\code{y_train}}{The training response vector.}
+
+\item{\code{X_test}}{The test data matrix.}
 
 \item{\code{time_period}}{Specifies the time period: must be one of "days", "weeks" or
 "months".}
@@ -121,9 +121,6 @@ Function for fitting a GAM to the training dataset.
 parameter selection methods in `gam`.}
 
 \item{\code{...}}{Additional arguments to be passed to `gam`.}
-
-\item{\code{convert}}{Whether the column `date` should be converted to instants
-or they are already present.}
 }
 \if{html}{\out{</div>}}
 }
@@ -134,16 +131,13 @@ or they are already present.}
 \subsection{Method \code{predict()}}{
 Prediction for a new dataset
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PoissonGAM$predict(X_test = NULL, convert = FALSE, quiet = FALSE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{PoissonGAM$predict(X_test = NULL, quiet = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{X_test}}{The test data matrix.}
-
-\item{\code{convert}}{Whether the column `date` should be converted to instants
-or they are already present.}
 
 \item{\code{quiet}}{If TRUE, the function will not return the predicted values and
 will only update the object.}

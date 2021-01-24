@@ -4,16 +4,23 @@
 \alias{SupportVectorMachine}
 \title{Support vector machine wrapper}
 \description{
-R6 class wrapper for support vector machine implementation from e1071 package.
+R6 class wrapper for support vector machine implementation from **e1071** package.
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{kernel}}{Kernel function to use (as in svm documentation)}
+\item{\code{kernel}}{Kernel function to use: one of `"radial"`, `"linear"`, `"polynomial"`
+or `"sigmoid"`.}
+
+\item{\code{X_train}}{Training data matrix.}
+
+\item{\code{y_train}}{Training response vector.}
+
+\item{\code{X_test}}{Test data matrix.}
 
 \item{\code{fitted_model}}{`svm` object representing the fitted model.}
 
-\item{\code{predictions}}{Predicted values of given test dataset.}
+\item{\code{predictions}}{Vector of predicted response values for the test dataset.}
 }
 \if{html}{\out{</div>}}
 }
@@ -30,7 +37,7 @@ R6 class wrapper for support vector machine implementation from e1071 package.
 \if{html}{\out{<a id="method-new"></a>}}
 \if{latex}{\out{\hypertarget{method-new}{}}}
 \subsection{Method \code{new()}}{
-Create new SVM object.
+Create new SupportVectorMachine object.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{SupportVectorMachine$new(kernel = "radial")}\if{html}{\out{</div>}}
 }
@@ -47,7 +54,7 @@ Create new SVM object.
 \if{html}{\out{<a id="method-fit"></a>}}
 \if{latex}{\out{\hypertarget{method-fit}{}}}
 \subsection{Method \code{fit()}}{
-Fit the object to training data X and y.
+Fit the object to training data `X` and `y` via `svm` from **optim**.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{SupportVectorMachine$fit(X, y, ...)}\if{html}{\out{</div>}}
 }
@@ -55,9 +62,9 @@ Fit the object to training data X and y.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{X}}{Training data (dataframe or matrix).}
+\item{\code{X}}{Training data matrix.}
 
-\item{\code{y}}{Training data (vector).}
+\item{\code{y}}{Training response vector.}
 
 \item{\code{...}}{Additional arguments to be passed to `svm`.}
 }
@@ -70,13 +77,18 @@ Fit the object to training data X and y.
 \subsection{Method \code{predict()}}{
 Predict on X.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{SupportVectorMachine$predict(X)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{SupportVectorMachine$predict(X, logical = TRUE, quiet = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{X}}{X training or testing X.}
+\item{\code{X}}{Test data matrix.}
+
+\item{\code{logical}}{Whether to store the predictions as logical values.}
+
+\item{\code{quiet}}{If TRUE, the function will not return the predicted values and
+will only update the object.}
 }
 \if{html}{\out{</div>}}
 }

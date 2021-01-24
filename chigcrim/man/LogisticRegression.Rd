@@ -16,19 +16,23 @@ lr$predict(X)
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{lambda}}{Regularisation parameter (default=0).}
+\item{\code{lambda}}{Regularisation parameter (default = 0).}
 
-\item{\code{solver}}{"BFGS", "CG" or "L-BFGS-B".}
+\item{\code{solver}}{Solver to use in `optim`: one of "BFGS", "CG" or "L-BFGS-B".}
 
-\item{\code{X}}{Training X (dataframe or matrix).}
+\item{\code{X_train}}{Training data matrix.}
 
-\item{\code{y}}{Training y vector.}
+\item{\code{y_train}}{Training response vector.}
 
-\item{\code{theta}}{The fitted parameters.}
+\item{\code{X_test}}{Test data matrix.}
 
-\item{\code{control}}{List of control parameters to be passed to optim control.}
+\item{\code{theta}}{The fitted parameters of the logistic regression model.}
 
-\item{\code{round_y_hat}}{Logical, whether to round predicted values to 0 and 1.}
+\item{\code{control}}{List of control parameters to be passed to `optim`` control.}
+
+\item{\code{rounding}}{Logical, whether to round predicted values to 0 and 1.}
+
+\item{\code{predictions}}{The predicted values for `X_test`.}
 }
 \if{html}{\out{</div>}}
 }
@@ -36,11 +40,8 @@ lr$predict(X)
 \subsection{Public methods}{
 \itemize{
 \item \href{#method-new}{\code{LogisticRegression$new()}}
-\item \href{#method-log_loss}{\code{LogisticRegression$log_loss()}}
-\item \href{#method-grad_log_loss}{\code{LogisticRegression$grad_log_loss()}}
 \item \href{#method-fit}{\code{LogisticRegression$fit()}}
 \item \href{#method-predict}{\code{LogisticRegression$predict()}}
-\item \href{#method-print}{\code{LogisticRegression$print()}}
 \item \href{#method-clone}{\code{LogisticRegression$clone()}}
 }
 }
@@ -48,70 +49,26 @@ lr$predict(X)
 \if{html}{\out{<a id="method-new"></a>}}
 \if{latex}{\out{\hypertarget{method-new}{}}}
 \subsection{Method \code{new()}}{
-Create new LogisticRegression object.
+Create new `LogisticRegression` object.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$new(
   solver = "L-BFGS-B",
   lambda = 0,
   control = NULL,
-  round_y_hat = FALSE
+  rounding = FALSE
 )}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{solver}}{"L-BFGS-B", "BFGS" or "CG". Default "L-BFGS-B".}
+\item{\code{solver}}{`"L-BFGS-B"`, `"BFGS"` or `"CG"`. Default is `"L-BFGS-B"`.}
 
 \item{\code{lambda}}{Regularisation parameter, defualt 0.}
 
-\item{\code{control}}{List passed to optim control.}
+\item{\code{control}}{List of control parameters to be passed to `optim` control.}
 
-\item{\code{round_y_hat}}{Whether to round predictions.}
-}
-\if{html}{\out{</div>}}
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-log_loss"></a>}}
-\if{latex}{\out{\hypertarget{method-log_loss}{}}}
-\subsection{Method \code{log_loss()}}{
-Computes log loss (with regularisation). Assumes one-hot-encoded
-categorical variables and bias term in X.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$log_loss(theta, X, y)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{theta}}{Coefficients.}
-
-\item{\code{X}}{matrix with first column as bias.}
-
-\item{\code{y}}{0,1 vector.}
-}
-\if{html}{\out{</div>}}
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-grad_log_loss"></a>}}
-\if{latex}{\out{\hypertarget{method-grad_log_loss}{}}}
-\subsection{Method \code{grad_log_loss()}}{
-Computes the gradient of the log loss function (with regularisation).
-Assumes one-hot-encoded categorical variables and bias term in X.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$grad_log_loss(theta, X, y)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{theta}}{Coefficients.}
-
-\item{\code{X}}{matrix with first column as bias.}
-
-\item{\code{y}}{0,1 Vector.}
+\item{\code{rounding}}{Whether to round predicted values.}
 }
 \if{html}{\out{</div>}}
 }
@@ -143,30 +100,20 @@ Fit the object to training data X and y.
 \subsection{Method \code{predict()}}{
 Predict on X.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$predict(X)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$predict(X, quiet = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{X}}{X training or testing X.}
-}
-\if{html}{\out{</div>}}
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-print"></a>}}
-\if{latex}{\out{\hypertarget{method-print}{}}}
-\subsection{Method \code{print()}}{
-Print LogisticRegression object.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{LogisticRegression$print(...)}\if{html}{\out{</div>}}
-}
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{...}}{Additional arguments passed to print.}
+\item{\code{quiet}}{If TRUE, the function will not return the predicted values and
+will only update the object.
+Computes log loss (with regularisation). Assumes one-hot-encoded
+categorical variables and bias term in X.
+Computes the gradient of the log loss function (with regularisation).
+Assumes one-hot-encoded categorical variables and bias term in X.}
 }
 \if{html}{\out{</div>}}
 }
