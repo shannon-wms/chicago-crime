@@ -10,9 +10,11 @@ knitr::opts_knit$set(root.dir = paste0(rprojroot::find_rstudio_root_file(), "/ch
 
 ## Imports
 ```{r message=FALSE}
+library(tidyverse)
+library(data.table)
+library(lubridate)
+library(sf)
 library(chigcrim)
-library(rgdal)
-library(ggmap)
 set.seed(1)
 ```
 
@@ -25,7 +27,7 @@ In these regression tasks, two metrics will be used to assess performance, root 
 metrics <- list(rmse = rmse_loss, r2 = r_squared)
 ```
 
-Repeated k-fold cross validation is used, and hyperparameters are chosen based on the root mean square error metric. Specifically, we will use 3 repetitions of 5-fold cross validation at each parameter value (ran in parallel).
+Repeated k-fold cross validation is used, and hyperparameters are chosen based on the root mean square error metric. Specifically, we will use 5 repetitions of 5-fold cross validation at each parameter value (ran in parallel).
 
 ## Predicting the number of crimes each week
 First we will consider a simple, single dimensional example, using just the number of crimes each week as the feature.
@@ -65,8 +67,8 @@ bandwidth <- c(0.1, 1, 5, 10, 100)
 rmse_vec <- c()
 for (i in 1:length(bandwidth)){
   kr = KernelRidge$new("rbf", lambda = 0.001, bandwidth[i])
-  cv_results <- kfold_cv(kr, X, y, metrics, 5, n_reps = 3,
-                         parallel = TRUE, n_threads = 3 )
+  cv_results <- kfold_cv(kr, X, y, metrics, 5, n_reps = 5,
+                         parallel = TRUE, n_threads = 5)
 
   mean_rmse <- mean(cv_results$rmse)
   rmse_vec <- c(rmse_vec, mean_rmse)
@@ -138,23 +140,18 @@ The previous example used a single dimensional feature vector. We can also apply
 ### Read and prepare data
 The positions of the community areas will be represented by their centroids, as shown below:
 ```{r warning=FALSE, message=FALSE}
-shapefile <- readOGR("../data/community_areas.shp")
-shapefile_df <- fortify(shapefile)
-
-centroids <- st_read("../data/community_areas.shp", quiet = TRUE) %>%
+centroids <- community_bounds %>%
   arrange(as.integer(area_numbe)) %>%
   st_centroid() %>%
   st_coordinates() %>%
   as_tibble() %>%
   mutate(community_area = 1:nrow(.))
 
-p2 <- ggplot(centroids, aes(X, Y)) +
-  geom_point(size = 6, colour = "steelblue1") +
-  geom_text(aes(label = community_area)) +
-  theme_void() + 
-  geom_path(data = shapefile_df, 
-          aes(x = long, y = lat, group = group),
-          color = 'grey3', size = .2)
+p2 <- ggplot() +
+  geom_sf(data = community_bounds) +
+  geom_point(data = centroids, aes(X, Y), size = 5, colour = "steelblue1") +
+  geom_text(data = centroids, aes(X, Y, label = community_area)) +
+  theme_void()
 p2
 ```
 
@@ -172,7 +169,7 @@ df <- df %>%
   mutate(date = as.Date(mdy_hms(date)),
          year = year(date),
          month = month(date)) %>%
-  filter(date >= "2017-01-01", year != 2021) %>%  # Not enough data on 2021 yet
+  filter(date >= "2016-01-01", year != 2021) %>%  # Not enough data on 2021 yet
   drop_na()
 
 df <- df %>%
@@ -182,6 +179,7 @@ df <- df %>%
   summarise(n_crimes = n()) %>%
   left_join(centroids, by = "community_area")
 
+df
 ```
 
 ### Cross-validation
@@ -201,8 +199,8 @@ rmse_vec <- c()
 set.seed(3)
 for (i in 1:length(bandwidth)){
   kr = KernelRidge$new("rbf", lambda = 0.001, bandwidth[i])
-  cv_results <- kfold_cv(kr, X, y, metrics, 5, n_reps = 3,
-                         parallel = TRUE, n_threads = 3 )
+  cv_results <- kfold_cv(kr, X, y, metrics, 5, n_reps = 5,
+                         parallel = TRUE, n_threads = 5)
   mean_rmse <- mean(cv_results$rmse)
   rmse_vec <- c(rmse_vec, mean_rmse)
   
@@ -226,7 +224,7 @@ We can see that a bandwidth parameter value of `r kr_best$A` gave the lowest roo
 ```{r}
 as_tibble(cv_results_best)
 ```
-The model explained `r round(mean(cv_results_best$r2), 4)*100`% of the variance on average. The lower $R^2$ value is expected for this model, as in contrast to the first model, observations were not averaged over the whole of Chicago.
+The model explained `r round(mean(cv_results_best$r2), 4)*100`% of the variance on average. The lower $R^2$ value is unsurprising for this model, as in contrast to the first model, observations were not averaged over the whole of Chicago.
 
 ### Plot results
 Although being higher dimensional so difficult to plot, we can plot the predicted values against the observed values on a held out data set:
@@ -243,7 +241,7 @@ kr_best$fit(X_train, y_train)
 y_hat <- kr_best$predict(X_test)
 
 p3 <- qplot(y_test, y_hat, geom = "point") +
-  geom_abline(slope = 1, intercept = 0, colour = "red") +
+  geom_abline(slope = 1, intercept = 0, colour = "steelblue2") +
   labs(x = "Actual number of crimes", y = "Predicted number of crimes")
 p3
 ```
