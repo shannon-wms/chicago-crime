@@ -541,7 +541,7 @@ pred_plot <- qplot(y_test, y_hat, geom = "point") +
 pred_plot
 ```
 
-The plot illustrates strong predictive power, particularly when the number of reported incidents is smaller. We do note the drop-off at the higher end of actual reported incidents, suggesting the model tends to under-predict in these cases. This is to be expected somewhat, as extremely high counts are rare and the model has not been trained on a datset containing such high counts.
+The plot illustrates strong predictive power, particularly when the number of reported incidents is smaller. We do note the drop-off at the higher end of actual reported incidents, suggesting the model tends to under-predict in these cases. This is to be expected somewhat, as extremely high counts are rare and the model has not been trained on a dataset containing such high counts.
 
 We conclude this section by noting that kernel ridge regression can provide prediction functions that explain a high proportion of the variance. However, a major limitation of this method in our case is that it would be primarily be useful for interpolation, rather than extrapolation, for the reasons outlined above. 
 
