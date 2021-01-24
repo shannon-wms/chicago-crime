@@ -140,10 +140,11 @@ otherise <- function(string_vec, n_threshold, print_summary = TRUE){
   other_names <- names(counts[counts < n_threshold])
   string_vec[string_vec %in% other_names] <- "OTHER"
   if (print_summary){
-    print(paste0(length(other_names), " out of ", length(counts),
+    cat(paste0(length(other_names), " out of ", length(counts),
                 " categories were converted to OTHER corresponding to ",
-                100 * length(string_vec[string_vec == "OTHER"]) / length(string_vec),
-                "% of observations"))
+                round(100 * length(string_vec[string_vec == "OTHER"]) / length(string_vec), 
+                      digits = 2),
+                "%\n of observations. \n"))
   }
   return(string_vec)
 }
