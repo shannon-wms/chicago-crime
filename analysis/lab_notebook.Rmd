@@ -5,7 +5,7 @@ date: "25/01/2021"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = paste0(rprojroot::find_rstudio_root_file(), "/chigcrim"))
 ```
@@ -131,7 +131,7 @@ Below we outline our feature selection and data pre-processing choices. These de
 
 - Particularly rare factors will be grouped into a variable other (see `?otherise`).
 
-```{r}
+```{r, cache = TRUE}
 # Convert rarely used fbi categories to "OTHER"
 df$fbi_code <- otherise(df$fbi_code, 500)
 df$location_description <- otherise(df$location_description, 1000)
@@ -180,7 +180,7 @@ xtable::xtable(as_tibble(lr_results), digits = 4)
 
 As the support vector machine (SVM) allows use of a kernel function, it should be able to capture non-linear relationships in the original feature space (given an appropriate kernel). As the relationship between the features and the class is unknown, a radial basis function kernel is used. The R6 class `SupportVectorMachine`, again with `fit` and `predict` methods, is a wrapper of the function `svm` from the dedicated SVM package **e1071**. Unfortunately, support vector machines do not scale well to large data sets, so here we will only use 30,000 rows.
 
-```{r}
+```{r, cache = TRUE}
 # Subset the data randomly
 index <- sample(1:nrow(df), 30000)
 X_subset <- X[index, ]
@@ -189,7 +189,7 @@ y_subset <- y[index]
 
 In order to obtain optimal values for `cost` and `gamma` to be provided to `svm` for training the SVM, we utilise the built-in generic function `tune` from **e1071** which performs a grid search over given parameter ranges.
 
-```{r}
+```{r, eval = FALSE}
 # Not run due to time constraints, included for completeness
 e1071::tune(svm, y_subset ~ ., data = cbind(X_subset, y_subset), 
             ranges = list(cost = 2^(-2:5), gamma = 2^(-15:-4)),
@@ -221,7 +221,7 @@ The random forest trains multiple decision trees using a subset of features to c
 
 Our R6 class `RandomForest` is a wrapper for the function `randomForest` from the **randomForest** package. Due to the high computational cost involved in fitting random forest models we again use a smaller subset of the data. Here we use the same dataset used to fit the SVM, with the factor `community_area` removed as the algorithm for fitting the model cannot handle such a large number of factors.
 
-```{r}
+```{r, cache = TRUE}
 X_subset <- select(X_subset, - "community_area")
 
 # Initialise new RandomForest object
@@ -244,7 +244,7 @@ Logistic regression had higher sensitivity than the support vector machine, and 
 
 Being an ensemble model, the random forest unsurprisingly performed the best based on all three metrics. It is likely that the random forest could be improved by training on a larger subset of the data and optimising the hyperparameters. The downside of using a random forest is that, as a black-box method, it does not provide any inference as to how the features are used within the model. We are at least able to look at how many times each feature was chosen as a splitting point in all of the trees, providing us with some information as to the importance of each of the features. 
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, cache = TRUE}
 # Fit model with optimal hyper parameters
 rf$fit(X, y)
 
@@ -264,4 +264,262 @@ imp_plot
 
 The plot suggests that the most "important" feature is `fbi_code`, which is somewhat unsurprising as this tells us what type of crime was reported. This would intuitively have a significant impact on whether the incident report led to a suspect being arrested. None of the models achieve an accuracy of more than 90%. The availability of more data, for example the demographic background of the suspect and whether they have been arrested previously, would likely allow for more accurate predictions.
 
+# Prediction
 
+In this section we consider the regression tesk of predicting the number of reported crimes in a given area over a specified time period. We will look at a kernel ridge regression model before moving on to generalised additive models.
+
+```{r, include = FALSE}
+rm(list = ls())
+```
+
+```{r, message=FALSE}
+# Load required packages
+library(chigcrim)
+library(rgdal)
+library(sf)
+library(ggmap)
+# Use seed to ensure reproducibility
+set.seed(1)
+```
+
+## Assessing performance
+
+To assess performance, two metrics will be used: the root mean squared error (RMSE) and R-squared ($R^2$). These are defined as follows:
+
+- RMSE:
+
+- R-squared:
+
+These metrics can be computed using the functions `rmse_loss` and `r_squared`, respectively, from the **chigcrim** package.
+
+```{r}
+# List of metrics used to evaluate regression models
+metrics <- list(rmse = rmse_loss, r2 = r_squared)
+```
+
+Repeated k-fold cross validation is used, and hyperparameters are chosen based on the root mean square error metric. Specifically, we will use 5 repetitions of 5-fold cross validation at each parameter value (ran in parallel).
+
+## Kernel Ridge Regression
+
+The kernel ridge regression implementation includes a linear kernel (equivalent to ridge regression), a polynomial kernel, and a radial basis function kernel. As the relationship is complex and non-linear, only the radial basis function feature transform will be considered here, which implicitly induces an extremely flexible infinite dimensional feature transform.
+
+### Weekly predictions
+
+We first consider a simple, single-dimensional model, using only the number of crimes per week as the predictor.
+
+```{r}
+df <- readRDS("temp_data/date_data.rds")
+```
+
+```{r, eval = FALSE}
+df <- load_data(select = "date")
+```
+
+```{r, cache = TRUE}
+df %<>% 
+  mutate(date = date(date), week = week(date), year = year(date)) %>%
+  filter(week < 53) %>%
+  group_by(week, year) %>%
+  mutate(week_start = min(date)) %>%
+  ungroup() %>%
+  count(week, week_start, year) %>%
+  arrange(year, week) %>%
+  mutate(cumulative_week = 1:nrow(.))
+print(as.data.frame(head(df)))
+```
+
+Below I will use 5-fold cross validation to choose the bandwidth hyperparameter for the radial basis function kernel.
+
+```{r warning = FALSE, cache = TRUE}
+X <- as.matrix(df$cumulative_week)
+X <- scale(X)
+y <- df$n
+# Candidate values for the bandwidth of the radial basis function
+bandwidth <- c(0.1, 1, 5, 10, 100)
+# Initisalise vector of RMSE
+rmse_vec <- c()
+# Conduct a grid search with 5-fold CV
+for (i in 1:length(bandwidth)){
+  kr = KernelRidge$new("rbf", lambda = 0.001, bandwidth[i])
+  cv_results <- kfold_cv(kr, X, y, metrics, 5, n_reps = 3, 
+                         parallel = TRUE, n_threads = 3 )
+  mean_rmse <- mean(cv_results$rmse)
+  rmse_vec <- c(rmse_vec, mean_rmse)
+  # If mean RMSE is better than for the last best model clone and treat as best
+  if (mean_rmse == min(rmse_vec)){
+    # Clone the model and save
+    kr_best <- kr$clone(deep = TRUE)
+    # Update the best results
+    cv_results_best <- cv_results
+  }
+}
+
+rbf_results <- data.frame(bandwidth, rmse = rmse_vec)
+
+bandwidth_plot <- ggplot(rbf_results) +
+  geom_line(aes(x = bandwidth, y = rmse)) +
+  scale_x_log10() +
+  scale_y_log10()
+bandwidth_plot
+```
+
+We can see that a bandwidth parameter value of `r kr_best$A` gave the lowest root mean square error. We can look at the results for the three repeats of 5-fold cross-validation for this model:
+
+```{r}
+xtable::xtable(as_tibble(cv_results_best), digits = 4)
+```
+
+The model performs very well, explaining `r round(mean(cv_results_best$r2), 4)*100` % of the variance on average.
+
+As this is single-dimensional, we can plot the prediction function for the best model.
+
+```{r}
+y_hat <- kr_best$fit(X, y)
+y_hat <- kr_best$predict(X)
+
+# Plot output
+df$y_hat <- y_hat
+
+week_plot <- ggplot(df) + 
+  geom_point(aes(x = week_start, y = n)) +
+  geom_line(aes(x = week_start, y = y_hat), colour = "steelblue2", size = 1) +
+  scale_x_continuous(breaks = seq(2001, 2021, by = 2))
+  labs(x = "Year", y = "Number of reported crimes")
+week_plot
+```
+
+The plot suggests a cyclic pattern over years, so naturally we proceed to consider using a trigonometric transformation of the data (taking year as the period), in the hope that we can capture this periodicity with a simpler model. Note that, whilst kernel ridge regression is useful for interpolation, this model with a radial basis kernel actually has limited utility for forecasting reported crime counts into the future. We illustrate this point by attempting to extrapolate from this model.
+
+```{r, cache = TRUE}
+# Get the start of the next week not included in the data
+start_week_date <- max(df$week_start) + 7
+# Get the corresponding week number
+start_week_int <- max(df$cumulative_week) + 1
+
+extra_dates <- seq(ymd(start_week_date), ymd(start_week_date + 365*4),
+                   by = '1 week')
+extra_X <- start_week_int:(start_week_int + length(extra_dates) - 1)
+extra_X <- (extra_X - attributes(X)$`scaled:center`) /
+  attributes(X)$`scaled:scale`
+# Predict using our fitted model
+extra_y_hat <- kr_best$predict(as.matrix(extra_X))
+# Attach these values to the data frame
+extra_df <- tibble(extra_dates, extra_y_hat)
+week_plot + geom_line(data = extra_df, aes(extra_dates, extra_y_hat), colour = "steelblue2")
+```
+
+The cycles are captured solely due to being able to interpolate locally between points. When extrapolating with a radial basis function kernel, no cycles are predicted, so the out-of-sample accuracy drops substantially. The cross-validation error found is only applicable if the new data followed the same distribution, and this is simply not the case when considering future data.
+
+## Monthly predictions with a spatial component
+
+The previous example aggregated counts of reported crime over weeks, and as such used only a single-dimensional feature vector. We look at extending this analysis by aggregating over an additional spatial component. In the ensuing analysis, we consider predicting the reported crime counts over a month, aggregated over the community areas.
+
+The positions of the community areas will be represented by the coordinates of their centroids, which are extracted from their shapefiles.
+
+```{r warning = FALSE, message = FALSE}
+rm(list = ls())
+data("community_bounds")
+bounds_df <- fortify(community_bounds)
+centroids <- community_bounds %>% arrange(as.integer(area_numbe)) %>%
+  st_centroid() %>% st_coordinates() %>% as_tibble() %>%
+  mutate(community_area = 1:nrow(.))
+
+# Not sure if this works
+p2 <- ggplot(centroids, aes(X, Y)) +
+  geom_point(size = 6, colour = "steelblue1") +
+  geom_text(aes(label = community_area)) +
+  theme_void() + 
+  geom_path(data = bounds_df, 
+          aes(x = long, y = lat, group = group),
+          color = 'grey3', size = .2)
+p2
+```
+We shall consider data from the years 2017 to 2020.
+
+```{r, include = FALSE}
+df <- readRDS("temp_data/date1720.rds")
+```
+
+```{r eval = FALSE}
+df <- load_data(c(2017, 2020), strings_as_factors = FALSE, na_omit = TRUE)
+```
+
+```{r, cache = TRUE, message = FALSE}
+df %<>% select(date, community_area) %>%
+  mutate(date = date(date), year = year(date), month = month(date)) %>%
+  group_by(year, month) %>%
+  mutate(date = min(date)) %>%
+  group_by_all() %>%
+  summarise(n = n()) %>%
+  left_join(centroids, by = "community_area")
+```
+
+In order to choose a suitable bandwidth parameter for the radial basis function, we perform repeated 5-fold cross-validation.
+
+```{r warning = FALSE}
+# Obtain data matrix for fitting the model
+X <- df %>% ungroup() %>%
+  select(-community_area, -date, -n) %>%
+  as.matrix()
+# Scale the parameters
+X <- scale(X)
+y <- df$n
+# Bandwidth candidates
+bandwidth <- c(0.1, 1, 5, 10, 100)
+
+rmse_vec <- c()
+# Set new seed for reproduciblility
+set.seed(3)
+for (i in 1:length(bandwidth)){
+  kr <- KernelRidge$new("rbf", lambda = 0.001, bandwidth[i])
+  cv_results <- kfold_cv(kr, X, y, metrics, k = 5, n_reps = 3,
+                         parallel = TRUE, n_threads = 3 )
+  mean_rmse <- mean(cv_results$rmse)
+  rmse_vec <- c(rmse_vec, mean_rmse)
+  # Save best model
+  if (mean_rmse == min(rmse_vec)){
+    kr_best <- kr$clone(deep=TRUE)
+    cv_results_best <- cv_results
+  }
+}
+
+rbf_results <- data.frame(bandwidth, rmse = rmse_vec)
+
+band_plot <- ggplot(rbf_results) +
+  geom_line(aes(x = bandwidth, y = rmse)) +
+  scale_x_log10() +
+  scale_y_log10()
+band_plot
+```
+
+We obtain an optimal value of `r kr_best$A` which minimises the mean square error. Again, we can look at the results for the three repeats of 5-fold cross-validation for this model:
+
+```{r}
+xtable::xtable(as_tibble(cv_results_best))
+```
+
+On average, this model explained `r round(mean(cv_results_best$r2), 4)*100`% of the variance. Note the lower $R^2$ value: in contrast to the weekly model, observations were not averaged over the whole of Chicago.
+
+Although being higher dimensional so difficult to plot, we can plot the predicted values against the observed values on a held out data set:
+
+```{r}
+index <- sample(1:nrow(X), round(0.2 * nrow(X)))
+
+X_train <- X[-index, , drop = FALSE]
+y_train <- y[-index, , drop = FALSE]
+X_test <- X[index, ]
+y_test <- y[index]
+
+# Refit best model
+kr_best$fit(X_train, y_train)
+y_hat <- kr_best$predict(X_test)
+
+p3 <- qplot(y_test, y_hat, geom = "point") +
+  geom_abline(slope = 1, intercept = 0, colour = "red") +
+  labs(x = "Actual number of crimes", y = "Predicted number of crimes")
+p3
+```
+
+We can see a good association between the actual number of crimes in a given month and community area, and the predicted number of crimes on this held-out data.
+
+We can see that kernel ridge regression provides prediction functions that explain a high proportion of the variance. A major limitation of this method for predicting the number of crimes is that it would be primarily be useful for interpolation, rather than extrapolation, for the reasons outlined above. In the subsequent section, we explore generalised additive models, which form a more principled approach for forecasting the number of crimes.

@@ -10,15 +10,9 @@ knitr::opts_knit$set(root.dir = paste0(rprojroot::find_rstudio_root_file(), "/ch
 
 ## Imports
 ```{r message=FALSE}
-library(tidyverse)
-library(data.table)
-library(lubridate)
-library(sf)
+library(chigcrim)
 library(rgdal)
 library(ggmap)
-
-devtools::load_all("../chigcrim/")
-
 set.seed(1)
 ```
 
