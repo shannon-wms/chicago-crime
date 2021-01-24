@@ -2,7 +2,9 @@
 title: "Compass TB1 Group Project: Lab Notebook"
 author: "Euan Enticott, Daniel Ward, Shannon Williams"
 date: "25/01/2021"
-output: pdf_document
+output: pdf_document:
+  number_sections: true
+urlcolor: blue
 ---
 
 ```{r setup, include = FALSE}
@@ -24,11 +26,15 @@ The notebook will be broken up into three sections:
 
 # Workflow and Computational Techniques
 
-In the development of the package for this project, we utilised many computational techniques, that are outlined below.
+In the development of the package **chigcrim**, we utilised a number of computational techniques which are documented below. The package can be accessed on GitHub: \url{https://github.com/shannon-wms/chicago-crime}.
 
 ## Object-Oriented Programming
 
-We decided to use an object oriented approach to constructing models. Specifically, we made use of the `R6Class` from the **R6** package. `R6` objects are mutable and use an object oriented approach similar to most programming languages (unlike the more basic `S3` and `S4` classes). `R6` classes are very similar to reference classes, although generally `R6` classes are preferred. This is for a variety of reasons, including the fact that `R6` classes are much faster, and they handle fields in a neater way by putting them in a separate environment. More information on this can be found [here](https://adv-r.hadley.nz/r6.html). When building models, a model could be fitted using `model$fit(X, y)`, and predictions made with `model$predict(X)`. It is worth noting that this use of `fit` and `predict` methods in object-oriented machine learning packages is used elsewhere, particularly in the **Python** package **scikit-learn**. The key advantage of this approach is that it abstracts away the underlying complexities, and creates a consistent structure that makes it easier to compare different models. 
+We decided to use an object oriented approach to constructing models. In particular, we made use of the `R6Class` from the **R6** package. `R6` objects are mutable and use an object oriented approach similar to most programming languages (unlike the more basic `S3` and `S4` classes). `R6` classes are very similar to reference classes, although generally `R6` classes are preferred. This is for a variety of reasons, including the fact that `R6` classes are much faster, and they handle fields in a neater way by putting them in a separate environment. More information on this can be found [here](https://adv-r.hadley.nz/r6.html). Notably, `R6` classes support both public (available to the user) and private (not visible to the user) members.
+
+Each of the models considered can be initialised with a call to `model$new(...)`, and then fitted using `model$fit(X, y)` where `X` and `y` are our training data matrix and response vector, respectively. Predictions can then be made with `model$predict(X)`. The datasets, fitted model and predictions, along with other objects unique to the model, are then stored as fields accessed through `model$field`.
+
+It is worth noting that this use of `fit` and `predict` methods in object-oriented machine learning packages is used elsewhere, particularly in the **Python** package **scikit-learn**. The key advantage of this approach is that it abstracts away the underlying complexities, and creates a consistent structure that makes it easier to compare different models. 
 
 ## Parallel Programming
 
