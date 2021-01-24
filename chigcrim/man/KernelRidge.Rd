@@ -10,7 +10,7 @@ linear kernel, hyperparameters A and B should not be defined. With a
 polynomial kernel, A and B should be defined  as the constant and degree of
 the polynomial respectively. With an rbf kernel, A should be defined as the
 bandwidth, parameter, and B should not be defined. Note that the X matrix
-should be scaled before use (e.g. to mean 0 and sd=1).
+should be scaled before use (e.g., to have mean 0 and standard deviation 1).
 
 A bias column is assumed not to be present in the X matrices, and is
 added internally.

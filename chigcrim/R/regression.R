@@ -14,7 +14,7 @@ NULL
 #' polynomial kernel, A and B should be defined  as the constant and degree of
 #' the polynomial respectively. With an rbf kernel, A should be defined as the
 #' bandwidth, parameter, and B should not be defined. Note that the X matrix
-#' should be scaled before use (e.g. to mean 0 and sd=1).
+#' should be scaled before use (e.g., to have mean 0 and standard deviation 1).
 #'
 #' A bias column is assumed not to be present in the X matrices, and is
 #' added internally.
@@ -362,55 +362,3 @@ PoissonGAM <- R6Class("PoissonGAM", public = list(
   }
 )
 )
-
-#' 
-#' @param df Data frame with columns `date` and `n`.
-#' @return Data frame with counts from previous day added as column `n_pre`.
-#' @export
-add_prev_day <- function(df) {
-  start_date <- min(df$date)
-  df$n_pre <- left_join(data.frame(date = df$date - days(1)), df, by = "date")$n
-  df$n_pre[is.na(df$n_pre)] <- 0
-  df$n_pre[df$date == start_date] <- NA
-  return(df)
-}
-
-#' 
-#' @param df Data frame with column `date`.
-#' @return Data frame with additional column `dow` representing the day of the week.
-#' @export
-add_dow <- function(df) {
-  df$dow <- wday(df$date)
-  return(df)
-}
-
-#' 
-#' @param df Data frame with column `date`.
-#' @return Data frame with additional column `is_fom` representing whether the date
-#' is the first of the month.
-#' @export
-add_is_fom <- function(df) {
-  df$is_fom <- mday(df$date) == 1
-  return(df)
-}
-
-#' 
-#' @param df Data frame with column `date`.
-#' @return Data frame with additional column `is_christmas` representing whether the
-#' date is on the 24th, 25th or 26th December.
-#' @export
-add_is_christmas <- function(df) {
-  df$is_christmas <- format(df$date, "%d-%m") == "25-12" | 
-    format(df$date, "%d-%m") == "24-12" |
-    format(df$date, "%d-%m") == "26-12"
-  return(df)
-}
-
-#' @param Data frame with column `date`.
-#' @return Data frame with additional column `is_nyd` representing whether the date
-#' is on 1st January.
-#' @export
-add_is_nyd <- function(df) {
-  df$is_nyd <- format(df$date, "%d-%m") == "01-01" 
-  return(df)
-}
