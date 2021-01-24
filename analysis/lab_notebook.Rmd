@@ -416,20 +416,18 @@ The positions of the community areas will be represented by the coordinates of t
 
 ```{r warning = FALSE, message = FALSE}
 rm(list = ls())
-data("community_bounds")
-bounds_df <- fortify(community_bounds)
-centroids <- community_bounds %>% arrange(as.integer(area_numbe)) %>%
-  st_centroid() %>% st_coordinates() %>% as_tibble() %>%
+centroids <- community_bounds %>%
+  arrange(as.integer(area_numbe)) %>%
+  st_centroid() %>%
+  st_coordinates() %>%
+  as_tibble() %>%
   mutate(community_area = 1:nrow(.))
 
-# Not sure if this works
-p2 <- ggplot(centroids, aes(X, Y)) +
-  geom_point(size = 6, colour = "steelblue1") +
-  geom_text(aes(label = community_area)) +
-  theme_void() + 
-  geom_path(data = bounds_df, 
-          aes(x = long, y = lat, group = group),
-          color = 'grey3', size = .2)
+p2 <- ggplot() +
+  geom_sf(data = community_bounds) +
+  geom_point(data = centroids, aes(X, Y), size = 5, colour = "steelblue1") +
+  geom_text(data = centroids, aes(X, Y, label = community_area)) +
+  theme_void()
 p2
 ```
 We shall consider data from the years 2017 to 2020.
@@ -439,7 +437,7 @@ df <- readRDS("temp_data/date1720.rds")
 ```
 
 ```{r eval = FALSE}
-df <- load_data(c(2017, 2020), strings_as_factors = FALSE, na_omit = TRUE)
+df <- load_data(c(2016, 2020), strings_as_factors = FALSE, na_omit = TRUE)
 ```
 
 ```{r, cache = TRUE, message = FALSE}
