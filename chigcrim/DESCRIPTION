@@ -12,15 +12,17 @@ LazyData: true
 Suggests: 
     testthat
 RoxygenNote: 7.1.1
-Imports: 
-    R6,
-    ggplot2,
-    RSocrata,
-    data.table,
-    stats,
-    dplyr,
+Depends: 
+    R (>= 3.5.0),
     lubridate,
     magrittr,
+    dplyr,
+    stats, 
+    ggplot2
+Imports: 
+    R6,
+    RSocrata,
+    data.table,
     mltools,
     readr,
     mgcv,
@@ -32,5 +34,3 @@ Imports:
     randomForest,
     rlang, 
     caret
-Depends: 
-    R (>= 3.5.0)
