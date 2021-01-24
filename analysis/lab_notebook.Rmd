@@ -512,7 +512,8 @@ y_hat <- kr_best$predict(X_test)
 
 p3 <- qplot(y_test, y_hat, geom = "point") +
   geom_abline(slope = 1, intercept = 0, colour = "steelblue2") +
-  labs(x = "Actual number of crimes", y = "Predicted number of crimes")
+  labs(x = "Actual number of crimes", y = "Predicted number of crimes") +
+  scale_y_continuous(breaks=c(0, 500, 1000, 1500, 2000))
 p3
 ```
 
