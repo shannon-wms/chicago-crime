@@ -8,12 +8,12 @@ R6 class wrapper for the Poisson family of GAMs, fitted via `gam` from the packa
 **mgcv** and tailored for use with a subset of the Chicago Crime dataset. To initialise
 the object, the user supplies the variables over which to aggregate the data and, if 
 "community_area" is chosen as `region`, whether to include a neighbourhood list as part
-of the model. When `fit` is provided with data containing columns corresponding to 
-`region`, `time_period` and `crime_type` as well as a column "date", it will aggregate
-counts over these variables. It then fits a GAM with a cyclic cubic regression smoother for
-`time_period` and treats `region` and `crime_type` as factors (unless a neighbourhood list
-is included, in which case a Markov random field smoother is applied to `region`). For more
-details on model fitting methods, see **mgcv**.
+of the model. Given a matrix with columns corresponding to `time_period`, `region`, 
+and `crime_type` (the latter two being optional), and a response vector containing the
+counts of reported crimes aggregated over these variables, it will fit a GAM with a 
+cyclic cubic regression smoother for`time_period` and treats `region` and `crime_type` 
+as factors (unless a neighbourhood lists included, in which case a Markov random field 
+smoother is applied to `region`). For more details on model fitting methods, see **mgcv**.
 }
 \examples{
 df <- convert_dates(load_data(2019, na_omit = TRUE), filter_week = TRUE)
@@ -36,17 +36,20 @@ pred <- pg$predict(X_test)
 
 \item{\code{X_test}}{The test data matrix.}
 
-\item{\code{time_period}}{Specifies the time period: must be one of "days", "weeks" or
-"months".}
+\item{\code{time_period}}{Specifies the time period: must be one of `"yday"`, `"week"` or 
+`"month"`.}
 
-\item{\code{region}}{Specifies the spatial region to use: must be one of "beat", "district",
-"ward" or "community".}
+\item{\code{region}}{Specifies the spatial region to use: must be one of `"beat"`, 
+`"district"`, `"ward"` or `"community"`. If `NULL`,  this will not be included in the model.}
 
-\item{\code{crime_type}}{The crime type to include in the model as predictor. If `NULL`, 
-this will not be included in the model.}
+\item{\code{crime_type}}{The crime type to include in the model as predictor: must be one of
+`"primary_type"`, `"description"`, or `"fbi_code"`. If `NULL`, this will not be included 
+in the model.}
 
-\item{\code{include_nb}}{If "community_area" is the specified region, whether to include a 
+\item{\code{include_nb}}{If `"community_area"` is the specified region, whether to include a 
 neighbourhood list and then use a Markov random field smoother for fitting.}
+
+\item{\code{include_year}}{Whether to include `year` as a predictor in the model.}
 
 \item{\code{nb_list}}{Neighbourhood list for the community areas.}
 
@@ -75,9 +78,10 @@ Create new PoissonGAM object.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{PoissonGAM$new(
   time_period = "week",
-  region = "community_area",
+  region = NULL,
   crime_type = NULL,
-  include_nb = FALSE
+  include_nb = FALSE,
+  include_year = FALSE
 )}\if{html}{\out{</div>}}
 }
 
@@ -95,6 +99,8 @@ If `NULL`, this will not be included in the model.}
 
 \item{\code{include_nb}}{Whether to include a neighbourhood list for the regions,
 and hence whether to use a Markov random field smoother for the region.}
+
+\item{\code{include_year}}{Whether to include `year` as a predictor in the model.}
 
 \item{\code{filter_week}}{Whether to filter out the 53rd week.}
 }

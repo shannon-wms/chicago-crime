@@ -9,6 +9,7 @@ load_data(
   strings_as_factors = TRUE,
   drop_location = TRUE,
   na_omit = FALSE,
+  select = NULL,
   limit = NULL,
   ...
 )
