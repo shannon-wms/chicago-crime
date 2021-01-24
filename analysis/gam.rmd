@@ -257,6 +257,86 @@ ggsave("../plots/best_gam_plot.pdf", plot = best_gam_plot, width = 9.99, height 
 # Construct training data set
 spatial_train <- gam_train %>% 
   mutate(community_area = factor(community_area)) %>%
+  count(month, year, community_area) %>%
+  arrange(year, month, community_area)
+
+# Construct test data set
+spatial_test <- gam_test %>% 
+  mutate(community_area = factor(community_area)) %>%
+  count(month, year, community_area) %>%
+  arrange(year, month, community_area)
+
+# Train GAM
+mGAM<- PoissonGAM$new(time_period = "month", region = "community_area",
+                     crime_type = NULL, include_nb = TRUE)
+
+metrics <- list(rmse_loss, r_squared)
+
+# Fit using gam_train as the dataset 
+X <- spatial_train %>% select(-n)
+y <- spatial_train$n
+
+# Find CV error for given metrics
+GAM_results <- kfold_cv(mGAM, X =X, y = y, error_funcs = metrics, k = 5, n_reps = 5, parallel = TRUE, n_threads = 5)
+names(GAM_results) <- c("Root MSE", "R2")
+xtable(as_tibble(GAM_results), digits = 3)
+
+# Fit model and find validation error
+mGAM$fit(X, y, n_threads = 7)
+mGAM$gam_fitted
+mGAM$fit_summary
+
+
+spatial_test$predicted <- predict(mGAM$gam_fitted, type = "response", newdata = spatial_test)
+
+val_rmse <- rmse_loss(spatial_test$n, spatial_test$predicted)
+val_r2 <- r_squared(spatial_test$n, spatial_test$predicted)
+
+val_rmse 
+val_r2
+xtable(data.frame("Root MSE" = val_rmse, "R2" = val_r2))
+```
+
+```{r, eval = T, echo = F}
+mGAM <- ("mGAMcv.rds")
+GAM_results <- readRDS("mGAM.rds")
+
+# Construct training data set
+spatial_train <- gam_train %>% 
+  mutate(community_area = factor(community_area)) %>%
+  count(month, year, community_area) %>%
+  arrange(year, month, community_area)
+
+# Construct test data set
+spatial_test <- gam_test %>% 
+  mutate(community_area = factor(community_area)) %>%
+  count(month, year, community_area) %>%
+  arrange(year, month, community_area)
+metrics <- list(rmse_loss, r_squared)
+
+# Fit using gam_train as the dataset 
+X <- spatial_train %>% select(-n)
+y <- spatial_train$n
+
+# Find CV error for given metrics
+
+xtable(as_tibble(GAM_results), digits = 3)
+
+spatial_test$predicted <- predict(mGAM$gam_fitted, type = "response", newdata = spatial_test)
+
+val_rmse <- rmse_loss(spatial_test$n, spatial_test$predicted)
+val_r2 <- r_squared(spatial_test$n, spatial_test$predicted)
+
+val_rmse 
+val_r2
+xtable(data.frame("Root MSE" = val_rmse, "R2" = val_r2))
+```
+
+```{r, warning=FALSE, eval = F, echo=T}
+# Train GAM
+# Construct training data set
+spatial_train <- gam_train %>% 
+  mutate(community_area = factor(community_area)) %>%
   count(month, year, community_area, fbi_code) %>%
   arrange(year, month, community_area)
 
@@ -266,11 +346,10 @@ spatial_test <- gam_test %>%
   count(month, year, community_area, fbi_code) %>%
   arrange(year, month, community_area)
 
-# Train GAM
+
 wGAM_com <- PoissonGAM$new(time_period = "month", region = "community_area",
                      crime_type = "fbi_code", include_nb = FALSE)
 
-metrics <- list(rmse_loss, r_squared)
 
 # Fit using gam_train as the dataset 
 X <- spatial_train %>% select(-n)
@@ -327,6 +406,8 @@ spatial_test <- gam_test %>%
 spatial_test$predicted <- predict(wGAM_com$gam_fitted, type = "response", newdata = spatial_test)
 
 wGAM_com <- readRDS("wGAM.rds")
+xtable(as_tibble(GAM_results), digits = 4)
+GAM_results <- readRDS("GAM_results.rds")
 val_rmse <- rmse_loss(spatial_test$n, spatial_test$predicted)
 val_r2 <- r_squared(spatial_test$n, spatial_test$predicted)
 
