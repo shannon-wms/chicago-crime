@@ -9,7 +9,8 @@ load_data(
   strings_as_factors = TRUE,
   drop_location = TRUE,
   na_omit = FALSE,
-  limit = NULL
+  limit = NULL,
+  ...
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ and longitude.}
 \item{na_omit}{Whether to omit observations with NA values.}
 
 \item{limit}{Limit set on how many rows of data to obtain.}
+
+\item{...}{Additional arguments to be passed to `read.socrata`.}
 }
 \value{
 tibble data frame of Chicago Crime data.

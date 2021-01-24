@@ -7,13 +7,13 @@
 parse_X(X)
 }
 \arguments{
-\item{X}{matrix or data.frame}
+\item{X}{Matrix or data.frame.}
 }
 \value{
-matrix
+Matrix with one-hot encoding.
 }
 \description{
 If a matrix is passed, function checks that it is not a character matrix.
 If a data frame is passed, the function similarly checks the types, and
-one hot encodes factors.
+one-hot encodes factors.
 }

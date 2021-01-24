@@ -10,6 +10,8 @@
 #' @import doParallel
 #' @import parallel
 #' @import foreach
+#' @import rlang
+#' @import caret
 NULL
 
 #' Parse matrix into useful format for ML algorithms
@@ -55,7 +57,7 @@ parse_X <- function(X){
 #' @return tibble data frame of Chicago Crime data.
 #' @export
 load_data <- function(year = NULL, strings_as_factors = TRUE, drop_location = TRUE, 
-                      na_omit = FALSE, limit = NULL, ...) {
+                      na_omit = FALSE, select = NULL, limit = NULL, ...) {
   # Only accept NULL or valid years
   if (!is.null(year)) {
     if (!all(year %in% 2001:2021)) {
@@ -76,13 +78,26 @@ load_data <- function(year = NULL, strings_as_factors = TRUE, drop_location = TR
     year <- as.character(year)
     full_url <- paste0(base_url, "?year=", year)
   }
+  # If select is specified, check a valid column is given
+  if (!is.null(select)) {
+    if (length(select) > 1) stop("Choose only one column to select.")
+    else if (!select %in% c("id", "case_number", "date", "block", "iucr", "primary_type",
+                            "description", "location_description", "arrest", "domestic",
+                            "beat", "district", "ward", "comunity_area", "fbi_code", 
+                            "x_coordinate", "y_coordinate", "year", "updated_on", 
+                            "latitude", "longitude")) {
+      stop("Choose a valid column name.")
+    } else {
+      full_url <- paste0(full_url, ifelse(is.null(year), "?$", "&$"), "select=`", select, "`")
+    }
+  }
   # If limit specified, check it is numeric
   if (!is.null(limit)) {
     if(is.na(as.numeric(limit))) stop("Limit must be numeric.")
     else { # Convert limit to a character integer
       limit %<>% as.integer() %>% as.character()
       # Add limit query to URL
-      full_url <- paste0(full_url, ifelse(is.null(year), "?$", "&$"),
+      full_url <- paste0(full_url, ifelse((is.null(year) && is.null(select)), "?$", "&$"),
                             "limit=", limit)
     }
   }
@@ -92,19 +107,22 @@ load_data <- function(year = NULL, strings_as_factors = TRUE, drop_location = TR
   if (na_omit) df %<>% na.omit()
   # Convert dots in column names to underscore
   colnames(df) %<>% strsplit(split = "\\.") %>% lapply(paste, collapse = "_")
-  # Convert character columns (excluding case_number and block) to factor or logical
-  df %<>% type_convert(col_types = list(arrest = col_logical(),
-                                        domestic = col_logical()))
-  # Convert strings to factors
-  if (strings_as_factors){
-    df %<>% type_convert(col_types = list(iucr = col_factor(),
-                                          primary_type = col_factor(),
-                                          description = col_factor(),
-                                          location_description = col_factor(),
-                                          fbi_code = col_factor()))
+  if(is.null(select)) {
+    # Convert character columns (excluding case_number and block) to factor or logical
+    df %<>% type_convert(col_types = list(arrest = col_logical(),
+                                          domestic = col_logical()))
+    # Convert strings to factors
+    if (strings_as_factors) {
+      df %<>% type_convert(col_types = list(iucr = col_factor(),
+                                            primary_type = col_factor(),
+                                            description = col_factor(),
+                                            location_description = col_factor(),
+                                            fbi_code = col_factor()))
+    }
+    # Drop location
+    if (drop_location) df %<>% select(-location)
   }
-  # Drop location
-  if (drop_location) df %<>% select(-location)
+  
   return(df)
 }
 
@@ -199,8 +217,7 @@ kfold_cv <- function(object, X, y, error_funcs, k, n_reps = 1000,
     registerDoParallel(cluster)
     # Load the required packages to the parallel sessions
     clusterEvalQ(cluster, {
-      devtools::load_all()
-      library(caret)
+      library(chigcrim)
     })
     # Export the R objects in the current environment to the parallel sessions
     clusterExport(cluster, c("object", "X", "y", "error_funcs", "n", "k"),
@@ -274,9 +291,9 @@ convert_dates <- function(df, date_col = "date", as_factors = TRUE,
   }
   # Remove specified rows to exclude
   if (!is.null(exclude)) {
-    if (!all(exclude %in% c("month", "week", "day", "hour", "yday", "date"))) {
-      return('Ensure that exclude is a valid selection from
-             "month", "week", "day", "hour", "yday", "date".')
+    if (!all(exclude %in% c("month", "week", "day", "hour", "yday", "wday", "date"))) {
+      stop('Ensure that exclude is a valid selection from
+             "month", "week", "day", "hour", "yday", "wday", "date".')
     } else df <- df[, !names(df) %in% exclude]
   }
   # Filter out weeks > 53 if required
@@ -314,7 +331,7 @@ get_count_data = function(df, time_period = "week", region = "community_area",
       count(get(region), get(time_period), year) %>%
       rename(!!eval(time_period) := `get(time_period)`,
              !!eval(region) := `get(region)`) %>%
-      arrange(get(time_period), get(region), year)
+      arrange(get(region), get(time_period), year)
   }
   return(count_data)
 }
