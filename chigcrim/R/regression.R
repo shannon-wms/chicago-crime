@@ -19,7 +19,8 @@ NULL
 #' A bias column is assumed not to be present in the X matrices, and is
 #' added internally.
 #'
-#' @field kernel String in 'linear', 'polynomial' or 'rbf' for kernel choice.
+#' @field kernel String in `"linear"`, `"polynomial"` or `"rbf"` defining the
+#' choice of kernel.
 #' @field lambda Regularisation parameter.
 #' @field A First hyperparameter (see description).
 #' @field B Second hyperparameter (see description).
