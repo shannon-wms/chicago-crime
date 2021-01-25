@@ -89,7 +89,6 @@ Note that logistic regression is a probabilistic classifier whereas support vect
 ```{r, message = FALSE, warning = FALSE}
 # Load required packages
 library(chigcrim)
-
 # Use seed to ensure reproducibility
 set.seed(1)
 ```
@@ -934,7 +933,7 @@ com_area$residual <- (com_area$n - com_area$n_pred)
 community_bounds$residual <- com_area$residual
 
 by_area <- ggplot(community_bounds) + geom_sf(aes(fill = residual)) + 
-  ggtitle("Predicted Crime Frequency by Community Area") +
+  ggtitle("Residuals produced by Community Area") +
   colorspace::scale_fill_continuous_sequential(5, palette = "Inferno") + 
   theme_void() +
   guides(fill = guide_colorbar(title = "Frequency")) +
@@ -1007,7 +1006,7 @@ community_bounds$residual <- com_area$residual
 # Plot the residuals for each Community Area
 by_area <- ggplot(community_bounds) + 
   geom_sf(aes(fill = residual)) + 
-  ggtitle("Predicted Crime frequency by Community Area") +
+  ggtitle("Residuals produced by Community Area") +
   colorspace::scale_fill_continuous_sequential(5, palette = "Inferno") + 
   theme_void() +
   guides(fill = guide_colorbar(title = "Frequency")) +
