@@ -455,7 +455,7 @@ week_plot <- ggplot(df) +
 week_plot
 ```
 
-The plot suggests a cyclic pattern over years, so naturally we proceed to consider using a trigonometric transformation of the data (taking year as the period), in the hope that we can capture this periodicity with a simpler model. Note that, whilst kernel ridge regression is useful for interpolation, this model with a radial basis kernel actually has limited utility for forecasting reported crime counts into the future. We illustrate this point by attempting to extrapolate from this model.
+Note that, whilst kernel ridge regression is useful for interpolation, this model with a radial basis kernel actually has limited utility for forecasting reported crime counts into the future. We illustrate this point by attempting to extrapolate from this model.
 
 ```{r, cache = TRUE}
 # Get the start of the next week not included in the data
