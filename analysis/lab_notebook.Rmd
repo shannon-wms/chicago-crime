@@ -346,7 +346,7 @@ Repeated $k$-fold cross validation is used, and hyperparameters are chosen based
 
 ## Kernel Ridge Regression
 
-The `R6` class `KernelRegression` fits a kernel ridge regression model with a specified kernel: one of `"linear"` (equivalent to ridge regression), `"polynomial"`, or `"radial"` (radial basis kernel).
+The `R6` class `KernelRegression` fits a kernel ridge regression model with a specified kernel: one of `"linear"` (equivalent to ridge regression), `"polynomial"`, or `"rbf"` (radial basis kernel).
 
 As the relationship between the data and response is complex and non-linear, only the radial basis kernel will be considered here. This implicitly induces an extremely flexible infinite-dimensional feature transform. Note that we fix the regularisation parameter `lambda` as 0.001 in the ensuing analysis.
 
@@ -399,7 +399,7 @@ bandwidth <- c(0.1, 1, 5, 10, 100)
 rmse_vec <- c()
 # Conduct a grid search with 5-fold CV
 for (i in 1:length(bandwidth)){
-  kr = KernelRidge$new("rbf", lambda = 0.001, bandwidth[i])
+  kr = KernelRidge$new(kernel = "rbf", lambda = 0.001, bandwidth[i])
   cv_results <- kfold_cv(kr, X, y, metrics, k = 5, n_reps = 5, 
                          parallel = TRUE, n_threads = 5)
   mean_rmse <- mean(cv_results$rmse)
@@ -617,15 +617,12 @@ In the subsequent section, we explore generalised additive models, which form a 
 
 ## Generalised Additive Models
 
-Our `R6` class `PoissonGAM` is a wrapper 
+Our `R6` class `PoissonGAM` is a wrapper for the Poisson family of GAMs, fitted via `gam` from the package **mgcv**. For full details on its use, see the package documentation.
 
-A little about `PoissonGAM` and **mgcv**.
-
-For the training data we will use historical data between 2015 and 2018. We will then predict on the data from 2019 to test the model.
+For training the GAMs we will be using data from between 2015 and 2018. For testing we shall use data from 2019.
 
 ```{r, include = FALSE}
 rm(list = ls())
-library(mgcv)
 df_train <- readRDS("temp_data/data1518.rds")
 df_test <- readRDS("temp_data/data19.rds")
 ```
@@ -638,6 +635,8 @@ df_test <- load_data(2019, strings_as_factors = TRUE)
 ```
 
 ### Daily Predictions
+
+We first consider a GAM applied to daily counts of reported crime incidents, aggregated over the entire City of Chicago.
 
 ```{r}
 # Extract useful information from the date
@@ -662,7 +661,7 @@ count_test <- gam_test %>% count(yday, year, date) %>% arrange(year, yday)
 print(as.data.frame(head(count_train)))
 ```
 
-We separate this dataset into a training set and a test set, and proceed to fit our baseline GAM which has the year and day of the year as predictors. We use a cyclic cubic smoother for the day of the year. 
+We separate this dataset into a training set and a test set, and proceed to fit our baseline GAM which has the year and day of the year as predictors. We use a cyclic cubic smoother for the day of the year, and proceed to predict on both the training and test data.
 
 ```{r, cache = TRUE}
 # Convert data to matrix and vector format for model training
@@ -670,19 +669,20 @@ X_train <- count_train %>% select(-n)
 y_train <- count_train$n
 X_test <- count_test %>% select(-n)
 y_test <- count_test$n
-
-# Fit the baseline GAM
+# Initialise new PoissonGAM object
 gam1 <- PoissonGAM$new(time_period = "yday", region = NULL, crime_type = NULL, 
                       include_nb = FALSE, include_year = TRUE)
+# Fit the baseline daily GAM
 gam1$fit(X = X_train, y = y_train, n_threads = 3)
+# Fit summary
 gam1$fit_summary
+# Predict on entire dataset
 pred <- gam1$predict(X = bind_rows(X_train, X_test))
 # Store type of each data 
 count_train$Type <- "Training data"
 count_test$Type <- "Test data"
 all_dat <- bind_rows(count_train, count_test)
 all_dat$Type <- as.factor(all_dat$Type)
-
 # Create plot for baseline model
 base_gam_plot <- ggplot(all_dat) + 
   geom_point(aes(date, n)) + 
@@ -695,19 +695,20 @@ base_gam_plot <- ggplot(all_dat) +
         legend.title = element_text(size = 13), 
         legend.text = element_text(size = 10))
 base_gam_plot
-
 # Obtain metrics on test data
 pred_test <- gam1$predict(X = X_test)
-# Initialise vectors for RMSE and R squared values
+# Initialise vectors for RMSE and R squared values to compare subsequent models
 rmse <- c()
 rsq <- c()
 rmse[1] <- rmse_loss(pred_test, y_test)
 rsq[1] <- r_squared(pred_test, y_test)
 ```
 
+\pagebreak
+
 ### Feature creation
 
-There are several features that may be of interest, whether a day is a weekend or not, the number of crimes over the previous month, the number of crimes on the same day of the previous year. 
+There are several features that may be of interest. For example: whether a day falls on a weekend; the number of crime incidents reported on the previous day; or the number of crimes on the same day of the previous year. 
 
 We first summarise the dates on which the most and fewest crimes are reported, to gain some idea as to what factors might be influential.
 
@@ -730,6 +731,8 @@ least_crimes$date <- as.character(least_crimes$date)
 tab <- xtable::xtable(head(least_crimes[, -5]), )
 print(tab, type = "latex", comment = FALSE)
 ```
+
+At first glance, we notice that the highest number of reported crimes often falls on the first day of the year. We also find that the lowest number appears to fall on Christmas day. We constructed the functions `add_prev_day`, `add_dow`, `add_is_fom`, `add_is_christmas` and `add_is_nyd` to attempt to capture some of this information. We proceed to fit a few different GAMs on the resulting data and observe their explanatory and predictive power.
 
 ```{r}
 # Add features to training data
@@ -765,9 +768,10 @@ count_test_new[1, "n_pre"] <- count_train_new[count_train_new$date == "2018-12-3
 print(as.data.frame(head(count_train_new)))
 ```
 
-As `PoissonGAM` doesn't currently have functionality to support additional custom features, here we fit the GAM directly using `gam` from **mgcv**.
+As `PoissonGAM` does not currently have functionality to support additional custom features, we fit the following GAMs directly using `gam` from **mgcv**. The same analysis is performed on the following models.
 
 ```{r, cache = TRUE, warning = FALSE}
+library(mgcv)
 gam2 <- gam(n ~ s(as.numeric(yday), bs = "cc") + n_pre, 
             data = count_train_new, family = "poisson")
 gam2_pred <- predict(gam2, type = "response", newdata = count_full)
@@ -867,7 +871,13 @@ tab <- xtable::xtable(gam_metrics)
 print(tab, type = "latex", comment = FALSE)
 ```
 
+The final model appears to have the best performance, with the lowest RMSE and highest $R^2$ value. This model takes as input the most features, so is likely able to capture the variance to a greater extent.
+
+\pagebreak
+
 ### Adding Spatial Data
+
+In order to compare our model with the kernel ridge regression model, we aggregate over months and add a spatial component: the community area. `PoissonGAM` has functionality for taking a neighbourhood list along with the community area data, and fits a Markov random field smoother to this factor via `gam`.
 
 ```{r, warning = FALSE}
 # Construct training data set
@@ -913,6 +923,11 @@ mgam$fit(X_train, y_train, n_threads = 7)
 ```{r, cache = TRUE}
 # Summary of the fit
 mgam$fit_summary
+```
+
+Notice that this model explains `98.1%` of the variance in the training data.
+
+```{r, cache = TRUE}
 # Predict on test data
 spatial_test$predicted <- mgam$predict(X = X_test)
 ```
@@ -925,6 +940,8 @@ tab <- xtable::xtable(data.frame("RMSE" = rmse, "R2" = rsq))
 print(tab, type = "latex", comment = FALSE)
 ```
 
+To illustrate the predictive power of the fitted model over the community areas, we sum the true number of crimes reported in the test dataset and the predicted number generated by the model. Below we produce a map of the residuals.
+
 ```{r, cache = TRUE, message = FALSE}
 data("community_bounds")
 com_area <- spatial_test %>% 
@@ -934,7 +951,7 @@ com_area$residual <- (com_area$n - com_area$n_pred)
 community_bounds$residual <- com_area$residual
 
 by_area <- ggplot(community_bounds) + geom_sf(aes(fill = residual)) + 
-  ggtitle("Predicted Crime Frequency by Community Area") +
+  ggtitle("Residuals Produced by Community Area") +
   colorspace::scale_fill_continuous_sequential(5, palette = "Inferno") + 
   theme_void() +
   guides(fill = guide_colorbar(title = "Frequency")) +
@@ -943,7 +960,15 @@ by_area <- ggplot(community_bounds) + geom_sf(aes(fill = residual)) +
 by_area
 ```
 
+In most areas, the model performs very well with relatively low errors. However, there are specific areas in which the predicted counts are far higher or lower than the actual counts.
+
+```{r, include = FALSE}
+ggsave("by_area1.pdf", by_area)
+```
+
 ### Adding Categorical Data
+
+On further exploratory analysis we found that adding the neighbourhood list did not significantly improve upon the model which took community area as a factor with no neighbourhood list provided. In this final section we fit a GAM without the neighbourhood list, with an additional factor indicating the type of crime reported.
 
 ```{r, cache = TRUE}
 # Construct training data set
@@ -998,6 +1023,8 @@ tab <- xtable::xtable(data.frame("RMSE" = rmse, "R2" = rsq))
 print(tab, type = "latex", comment = FALSE)
 ```
 
+The updated model has a lower RMSE value but also a lower $R^2$ value. Below we produce a map in the same way as the previous section.
+
 ```{r, cache = TRUE, message = FALSE, warning = FALSE}
 com_area <- spatial_fbi_test %>% group_by(community_area) %>% 
   summarise(n = sum(n), n_pred = sum(predicted))
@@ -1007,7 +1034,7 @@ community_bounds$residual <- com_area$residual
 # Plot the residuals for each Community Area
 by_area <- ggplot(community_bounds) + 
   geom_sf(aes(fill = residual)) + 
-  ggtitle("Predicted Crime frequency by Community Area") +
+  ggtitle("Residuals Produced by Community Area") +
   colorspace::scale_fill_continuous_sequential(5, palette = "Inferno") + 
   theme_void() +
   guides(fill = guide_colorbar(title = "Frequency")) +
@@ -1015,3 +1042,9 @@ by_area <- ggplot(community_bounds) +
                        breaks = seq(-1500, 1000, 500), limits = c(-1500, 1000))
 by_area
 ```
+
+```{r, include = FALSE}
+ggsave("by_area2.pdf", by_area)
+```
+
+The maps are quite similar, which may indicate little improvement in the model from adding the categorical component.
