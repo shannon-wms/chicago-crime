@@ -1,11 +1,10 @@
 Package: chigcrim
 Type: Package
-Title: What the Package Does (Title Case)
+Title: City of Chicago Crime Data Analysis
 Version: 0.1.0
 Author: Euan Enticott, Daniel Ward, Shannon Williams
 Maintainer: Shannon Williams <shannon.williams@bristol.ac.uk>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Description: Analysis tools for the City of Chicago crime dataset.
 License: AGPL-3
 Encoding: UTF-8
 LazyData: true
