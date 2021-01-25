@@ -9,14 +9,14 @@ NULL
 #'
 #' @description
 #' R6 class for Kernel Ridge Regression. Kernel is chosen using a string in
-#' 'linear', 'polynomial' or 'rbf' (for a radial basis function kernel). With a
-#' linear kernel, hyperparameters A and B should not be defined. With a
-#' polynomial kernel, A and B should be defined  as the constant and degree of
-#' the polynomial respectively. With an rbf kernel, A should be defined as the
-#' bandwidth, parameter, and B should not be defined. Note that the X matrix
+#' `"linear"`, `"polynomial"` or `"rbf"` (for a radial basis function kernel). 
+#' With a linear kernel, hyperparameters `A` and `B` should not be defined. With a
+#' polynomial kernel, `A` and `B` should be defined  as the constant and degree of
+#' the polynomial respectively. With an rbf kernel, `A` should be defined as the
+#' bandwidth, parameter, and `B` should not be defined. Note that the `X` matrix
 #' should be scaled before use (e.g., to have mean 0 and standard deviation 1).
 #'
-#' A bias column is assumed not to be present in the X matrices, and is
+#' A bias column is assumed not to be present in the `X` matrices, and is
 #' added internally.
 #'
 #' @field kernel String in `"linear"`, `"polynomial"` or `"rbf"` defining the
