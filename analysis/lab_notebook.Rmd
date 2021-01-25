@@ -2,9 +2,9 @@
 title: "Compass TB1 Group Project: Lab Notebook"
 author: "Euan Enticott, Daniel Ward, Shannon Williams"
 date: "25/01/2021"
-output: pdf_document:
-  number_sections: true
-urlcolor: blue
+output: 
+  pdf_document:
+    number_sections: true
 ---
 
 ```{r setup, include = FALSE}
@@ -42,11 +42,13 @@ Parallel programming was used to speed up slow code, utilising the package **doP
 
 ## Documentation
 
-In order to document functions in the package, we made use of **roxygen2**. This package automatically creates the `.Rd` documentation files for functions (or classes), from comments added above the function definitions. As well as being efficient, this allows the code and documentation to coexist, meaning it is easier to remember to update the documentation.
+In order to document functions in the package, we made use of **roxygen2**. This package automatically creates the `.Rd` documentation files for functions, classes and data, from comments added above the function definitions. In addition to being an efficient way to generate documentation, this allows the code and documentation to coexist, making it easier to remember to update the documentation.
 
 ## API Querying
 
-The Chicago Crime dataset is updated on a daily basis and, at the time of writing, contains over 7 million rows of data. For each reported incident, a total of 22 features are recorded (for a full list of features and their descriptions see the City of Chicago website). We elected not to download the dataset in full and include this in the package as it would consume a significant amount of storage, and quickly become out of date. Instead, we utilised the **RSocrata** package which allows easy interaction with the online open data portal. The wrapper `load_data` allows the end user to directly download the dataset into the R environment, via the function `read.socrata`. `load_data` provides functionality for filtering by year, limiting the number of data points received, and omitting missing/NA values.
+The Chicago Crime dataset is updated on a daily basis and, at the time of writing, contains over 7 million rows of data. For each reported incident, a total of 22 features are recorded (for a full list of features and their descriptions see the City of Chicago website). We elected not to download the dataset in full and include this in the package as it would consume a significant amount of storage, and quickly become out of date. 
+
+Instead, we utilised the **RSocrata** package which allows easy interaction with the online open data portal. The wrapper `load_data` allows the end user to directly download the dataset into the R environment, via the function `read.socrata`. `load_data` provides functionality for filtering by year, limiting the number of data points received, and omitting missing/`NA` values.
 
 ## Testing and Continuous Integration
 
@@ -62,25 +64,17 @@ For tests, we used the **testthat** package. This simply creates a new directory
 
 - Checks for missing dependencies.
 
-In order to make sure that tests and checks were run on a regular basis, continuous integration was set up using github actions. This runs `rcmdcheck()` for each pull request and push to the main branch. This limits the possibility of unintentionally introducing breaking changes.
+In order to ensure that tests and checks were run on a regular basis, continuous integration was set up using Github Actions. This runs `rcmdcheck()` for each pull request and push to the main branch, thus limiting the possibility of unintentionally introducing any breaking changes.
 
 \pagebreak
 
 # Classification
 
-```{r, message = FALSE}
-# Load required packages
-library(chigcrim)
-
-# Use seed to ensure reproducibility
-set.seed(1)
-```
-
 In this section we consider the binary classification task of predicting whether a suspect is arrested, given data on the reported crime. Three models will be investigated: logistic regression, support vector machines and random forest classifiers.
 
 ## Assessing Performance
 
-To assess performance, three metrics will be used: the overall accuracy, the sensitivity and the specificity. These are defined as follows:
+To assess performance, three metrics will be used:
 
 - Overall accuracy: The proportion of correct predictions.
 
@@ -90,7 +84,15 @@ To assess performance, three metrics will be used: the overall accuracy, the sen
 
 These metrics can be computed using the functions `classification_accuracy`, `classification_sensitivity`, and `classification_specifity`, respectively, from the **chigcrim** package.
 
-Note that as logistic regression is a probabilistic classifier whereas support vector machines and random forests are not. As such, the output from logistic regression is a probability in $[0,1]$. In our analysis, these probabilities are rounded to yield predictions that can be assessed with the metrics above to facilitate the comparison with the results of the other two classifiers.
+Note that logistic regression is a probabilistic classifier whereas support vector machines and random forests are non-probabilistic. As such, the output from logistic regression is a probability in $[0,1]$ while the outputs from the other models are class predictions in $\{0,1\}$. In our analysis, the probabilities given by logistic regression are rounded to yield predictions that can be assessed using the metrics above. This facilitates the comparison of these results with the other two classifiers.
+
+```{r, message = FALSE, warning = FALSE}
+# Load required packages
+library(chigcrim)
+
+# Use seed to ensure reproducibility
+set.seed(1)
+```
 
 ```{r}
 # List of metrics used to evaluate classification models
@@ -101,9 +103,11 @@ metrics <- list(accuracy = classification_accuracy,
 
 For each classifier, we will use repeated $k$-fold cross validation to obtain mean values of the metrics. Specifically, 5-fold cross validation is repeated five times (run in parallel using the function `kfold_cv`), and the metrics are averaged across the folds and repeats.
 
-## Feature selection
+\pagebreak
 
-Due to the time and computational limitations involved, we shall train the models on a subset of the data from the year 2019.
+## Feature Selection
+
+Due to the time and computational limitations involved in downloading, storing, and training models on the entire dataset, we shall train the models only on a subset of the data from the year 2019.
 
 ```{r, eval = FALSE}
 # Load 2019 data to build classification models
@@ -120,9 +124,9 @@ print(as.data.frame(head(df)))
 
 Below we outline our feature selection and data pre-processing choices. These decisions involved incorporating information from conducting exploratory data analysis (EDA), as well as considering what is computationally feasible.
 
-- Encode the date as the day of the year (an integer between 1-365, or 1-366 for leap years).
+- Encode the date as the day of the year, `yday` (an integer between 1-365, or 1-366 for leap years).
 
-- Encode time of day as a floating point in 0-24, as this showed promising results in our EDA.
+- Encode time of day as a floating point in 0-24 (`time`), as this showed promising results in our EDA.
 
 - Drop `year` as we are only using data from 2019.
 
@@ -134,7 +138,7 @@ Below we outline our feature selection and data pre-processing choices. These de
 
 - Drop `updated_on` as this only refers to when the data was last updated and is uninformative.
 
-- Drop `latitude` and `longitude`, and keep`x_coordinate` and `y_coordinate`. Note that these coordinates likely not particularly useful for linear classifiers, but should be useful for non-linear methods.
+- Drop `latitude` and `longitude`, and keep `x_coordinate` and `y_coordinate`. Note that these coordinates are likely not particularly useful for linear classifiers, but should be useful for non-linear methods.
 
 - Keep `community_area`, but other areas (`district`, `beat`, `ward` and `block`) are dropped.
 
@@ -164,9 +168,11 @@ df %<>% mutate(day = yday(df$date),
 print(as.data.frame(head(df)))
 ```
 
-### Logistic Regression
+\pagebreak
 
-We will first consider a logistic regression classifier, which is a linear classifier for binary data. We use our R6 class `LogisticRegression` which has methods `fit` and `predict`. `fit` calls the function `optim()` internally to minimize the cross-entropy/log-loss function using gradient-based optimisation methods (either BFGS, L-BFGS-B or CG); in our analysis we use BFGS as we don't run into memory issues.
+## Logistic Regression
+
+We will first consider a logistic regression classifier, which is a linear classifier for binary data. We use our `R6` class `LogisticRegression` which has methods `fit` and `predict`. `fit` calls the function `optim()` internally to minimize the cross-entropy/log-loss function using gradient-based optimisation methods (either BFGS, L-BFGS-B or CG); in our analysis we use BFGS as we don't run into memory issues.
 
 ```{r, cache = TRUE}
 # Split into data matrix and response vector
@@ -190,15 +196,17 @@ lr_results <- kfold_cv(lr, X, y, metrics, k = 5, n_reps = 5,
 lr_results <- readRDS("temp_data/lr_results.rds")
 ```
 
-```{r}
+```{r, cache = TRUE, results = "asis"}
 # Export results for use in report
 tab <- xtable::xtable(as_tibble(lr_results), digits = 4)
-print(tab, type = "latex")
+print(tab, type = "latex", comment = FALSE)
 ```
 
-### Support Vector Machines
+\pagebreak
 
-As the support vector machine (SVM) allows use of a kernel function, it should be able to capture non-linear relationships in the original feature space (given an appropriate kernel). As the relationship between the features and the class is unknown, a radial basis function kernel is used. The R6 class `SupportVectorMachine`, again with `fit` and `predict` methods, is a wrapper of the function `svm` from the dedicated SVM package **e1071**. Unfortunately, support vector machines do not scale well to large data sets, so here we will only use 30,000 rows.
+## Support Vector Machines
+
+As the support vector machine (SVM) allows use of a kernel function, it should be able to capture non-linear relationships in the original feature space (given an appropriate kernel). As the relationship between the features and the class is unknown, a radial basis function kernel is used. The `R6` class `SupportVectorMachine`, again with `fit` and `predict` methods, is a wrapper of the function `svm` from the dedicated SVM package **e1071**. Unfortunately, support vector machines do not scale well to large data sets, so here we will only use 30,000 rows.
 
 ```{r, cache = TRUE}
 # Subset the data randomly
@@ -241,17 +249,19 @@ svm_results <- kfold_cv(svm, X_subset, y_subset, metrics, k = 5,
                         n_threads = 5, gamma = 2^-5, cost = 2^4)
 ```
 
-```{r, cache = TRUE}
+```{r, cache = TRUE, results = "asis"}
 # Export results for use in report
 tab <- xtable::xtable(as_tibble(svm_results), digits = 4)
-print(tab, type = "latex")
+print(tab, type = "latex", comment = FALSE)
 ```
 
-### Random Forest
+\pagebreak
+
+## Random Forests
 
 The random forest trains multiple decision trees using a subset of features to create each tree. Decision trees are an ordered set of rules defined on the feature values that attempt to split the data into classes. As decision trees have a tendency to overfit, the random forest attempts to overcome this by growing multiple trees on different features within the dataset. In the classification case, a prediction is made by predicting from each decision tree separately and finding the most common predicted class. This is a black-box method but has the potential for good predictive performance.
 
-Our R6 class `RandomForest` is a wrapper for the function `randomForest` from the **randomForest** package. Due to the high computational cost involved in fitting random forest models we again use a smaller subset of the data. Here we use the same dataset used to fit the SVM, with the factor `community_area` removed as the algorithm for fitting the model cannot handle such a large number of factors.
+Our `R6` class `RandomForest` is a wrapper for the function `randomForest` from the **randomForest** package. Due to the high computational cost involved in fitting random forest models we again use a smaller subset of the data. Here we use the same dataset used to fit the SVM, with the factor `community_area` removed as the algorithm for fitting the model cannot handle such a large number of factors.
 
 ```{r, cache = TRUE}
 X_subset <- select(X_subset, - "community_area")
@@ -270,15 +280,15 @@ rf_results <- kfold_cv(rf, X_subset, y_subset, metrics, k = 5,
                        n_reps = 5, parallel = TRUE, n_threads = 5)
 ```
 
-```{r, cache = TRUE}
+```{r, cache = TRUE, results = "asis"}
 # Export results for use in report
 tab <- xtable::xtable(as_tibble(rf_results), digits = 4)
-print(tab, type = "latex")
+print(tab, type = "latex", comment = FALSE)
 ```
 
 ## Model Comparisons
 
-The models all performed very similarly. Unsurprisingly, the support vector machine and the random forest classifier performed better, due to their ability to capture non-linear relationships. It is worth noting that this difference is surprisingly small, although this could be related to the fact that the logistic regression model was trained on a larger dataset. Alternatively, the SVM results could suggest that encoding the community areas as factors was sufficient to capture much of the spatial aspect of the crimes in logistic regression.
+The models all performed quite similarly. Unsurprisingly, the support vector machine and the random forest classifier performed best, due to their ability to capture non-linear relationships. It is worth noting that this difference is surprisingly small, although this could be related to the fact that the logistic regression model was trained on a larger dataset. Alternatively, the SVM results could suggest that encoding the community areas as factors was sufficient to capture much of the spatial aspect of the crimes in logistic regression.
 
 Logistic regression had higher sensitivity than the support vector machine, and thus could be viewed as a preferable option if false negatives are particularly detrimental. It is worth noting however that both support vector machines and logistic regression can be adjusted to reflect unbalanced costs associated with incorrect predictions.
 
@@ -300,11 +310,16 @@ imp <- imp %>%
 imp_plot <- ggplot(aes(x = feature, y = mean_decrease_gini), data = imp) + 
   geom_col(fill = "steelblue2") + ylab("Mean decrease in Gini") + 
   scale_x_discrete(labels = c("FBI Code", "Y-Coordinate", "Time", "X-Coordinate", 
-                              "Day", "Location Description", "Domestic"))
+                              "Day", "Location Description", "Domestic")) + 
+  theme(axis.text.x = element_text(size = rel(0.9)))
 imp_plot
 ```
 
-The plot suggests that the most "important" feature is `fbi_code`, which is somewhat unsurprising as this tells us what type of crime was reported. This would intuitively have a significant impact on whether the incident report led to a suspect being arrested. None of the models achieve an accuracy of more than 90%. The availability of more data, for example the demographic background of the suspect and whether they have been arrested previously, would likely allow for more accurate predictions.
+```{r, include = FALSE}
+ggsave("imp_plot.pdf", imp_plot)
+```
+
+The plot suggests that the most "important" feature is `fbi_code`, which is somewhat unsurprising as this tells us what type of crime was reported. This would intuitively have a significant impact on whether the incident report led to a suspect being arrested. Note that none of the models achieved an accuracy greater than 90%. 
 
 \pagebreak
 
@@ -316,9 +331,27 @@ In this section we consider the regression tesk of predicting the number of repo
 rm(list = ls())
 ```
 
+## Assessing Performance
+
+To assess performance, two metrics will be used: the root mean squared error (RMSE) and R-squared ($R^2$). These metrics can be computed using the functions `rmse_loss` and `r_squared`, respectively, from the **chigcrim** package.
+
+```{r}
+# List of metrics used to evaluate regression models
+metrics <- list(rmse = rmse_loss, r2 = r_squared)
+```
+
+Repeated $k$-fold cross validation is used, and hyperparameters are chosen based on the RMSE metric. In particular, we will use 5 repetitions of 5-fold cross validation at each parameter value using the `kfold_cv` function.
+
+\pagebreak
+
+## Kernel Ridge Regression
+
+The `R6` class `KernelRegression` fits a kernel ridge regression model with a specified kernel: one of `"linear"` (equivalent to ridge regression), `"polynomial"`, or `"radial"` (radial basis kernel).
+
+As the relationship between the data and response is complex and non-linear, only the radial basis kernel will be considered here. This implicitly induces an extremely flexible infinite-dimensional feature transform. Note that we fix the regularisation parameter `lambda` as 0.001 in the ensuing analysis.
+
 ```{r, message = FALSE}
 # Load required packages
-library(chigcrim)
 library(rgdal)
 library(sf)
 library(ggmap)
@@ -326,28 +359,7 @@ library(ggmap)
 set.seed(1)
 ```
 
-## Assessing Performance
-
-To assess performance, two metrics will be used: the root mean squared error (RMSE) and R-squared ($R^2$). These are defined as follows:
-
-- RMSE:
-
-- R-squared:
-
-These metrics can be computed using the functions `rmse_loss` and `r_squared`, respectively, from the **chigcrim** package.
-
-```{r}
-# List of metrics used to evaluate regression models
-metrics <- list(rmse = rmse_loss, r2 = r_squared)
-```
-
-Repeated k-fold cross validation is used, and hyperparameters are chosen based on the root mean square error metric. Specifically, we will use 5 repetitions of 5-fold cross validation at each parameter value (ran in parallel).
-
-## Kernel Ridge Regression
-
-The kernel ridge regression implementation includes a linear kernel (equivalent to ridge regression), a polynomial kernel, and a radial basis function kernel. As the relationship is complex and non-linear, only the radial basis function feature transform will be considered here, which implicitly induces an extremely flexible infinite dimensional feature transform.
-
-### Weekly predictions
+### Weekly Predictions
 
 We first consider a simple, single-dimensional model, using only the number of crimes per week as the predictor.
 
@@ -372,9 +384,9 @@ df %<>%
 print(as.data.frame(head(df)))
 ```
 
-We shall use a grid search with 5-fold cross validation to choose the bandwidth hyperparameter for the radial basis function kernel.
+We shall use a grid search with 5-fold cross validation, repeated 5 times to obtain a robust average for RMSE, in order to choose the bandwidth hyperparameter for the radial basis kernel.
 
-```{r warning = FALSE,}
+```{r warning = FALSE}
 X <- as.matrix(df$cumulative_week)
 X <- scale(X)
 y <- df$n
@@ -388,7 +400,7 @@ rmse_vec <- c()
 # Conduct a grid search with 5-fold CV
 for (i in 1:length(bandwidth)){
   kr = KernelRidge$new("rbf", lambda = 0.001, bandwidth[i])
-  cv_results <- kfold_cv(kr, X, y, metrics, 5, n_reps = 5, 
+  cv_results <- kfold_cv(kr, X, y, metrics, k = 5, n_reps = 5, 
                          parallel = TRUE, n_threads = 5)
   mean_rmse <- mean(cv_results$rmse)
   rmse_vec <- c(rmse_vec, mean_rmse)
@@ -400,9 +412,8 @@ for (i in 1:length(bandwidth)){
     cv_results_best <- cv_results
   }
 }
-
+# Save as data frame and plot results
 rbf_results <- data.frame(bandwidth, rmse = rmse_vec)
-
 bandwidth_plot <- ggplot(rbf_results) +
   geom_line(aes(x = bandwidth, y = rmse)) +
   scale_x_log10() +
@@ -411,33 +422,31 @@ bandwidth_plot <- ggplot(rbf_results) +
 bandwidth_plot
 ```
 
-```{r, echo = FALSE, cache = TRUE}
+```{r, echo = FALSE, cache = TRUE, fig.height = 3}
 cv_results_best <- readRDS("temp_data/cv_results_best1.rds")
 kr_best <- readRDS("temp_data/kr_best1.rds")
 bandwidth_plot <- readRDS("temp_data/cv_plot1.rds")
 bandwidth_plot + xlab("Bandwidth") + ylab("RMSE")
 ```
 
-We can see that a bandwidth parameter value of `r kr_best$A` gave the lowest root mean square error. We can look at the results for the three repeats of 5-fold cross-validation for this model:
+We find that a bandwidth parameter value of `r kr_best$A` provided the lowest RMSE value. We can look at the results for the 5 repeats of 5-fold cross-validation for this model:
 
-```{r}
+```{r, cache = TRUE, results = "asis"}
 tab <- xtable::xtable(as_tibble(cv_results_best), digits = 4)
-print(tab, type = "latex")
+print(tab, type = "latex", comment = FALSE)
 ```
 
 The model performs very well, explaining `r round(mean(cv_results_best$r2), 4)*100` % of the variance on average.
 
-As this is single-dimensional, we can plot the prediction function for the best model.
+As this is single-dimensional, we can plot the prediction function for the model.
 
 ```{r}
 # Fit the final kernel ridge regression model
 kr_best$fit(X, y)
 # Obtain predictions on the dataset
 y_hat <- kr_best$predict(X)
-
-# Plot output
+# Plot predictions
 df$y_hat <- y_hat
-
 week_plot <- ggplot(df) + 
   geom_point(aes(x = week_start, y = n)) +
   geom_line(aes(x = week_start, y = y_hat), colour = "steelblue2", size = 1) +
@@ -452,7 +461,7 @@ The plot suggests a cyclic pattern over years, so naturally we proceed to consid
 start_week_date <- max(df$week_start) + 7
 # Get the corresponding week number
 start_week_int <- max(df$cumulative_week) + 1
-
+# Add the dates
 extra_dates <- seq(ymd(start_week_date), ymd(start_week_date + 365*4),
                    by = '1 week')
 extra_X <- start_week_int:(start_week_int + length(extra_dates) - 1)
@@ -467,11 +476,13 @@ week_plot + geom_line(data = extra_df, aes(extra_dates, extra_y_hat), colour = "
 
 The cycles are captured solely due to being able to interpolate locally between points. When extrapolating with a radial basis function kernel, no cycles are predicted, so the out-of-sample accuracy drops substantially. The cross-validation error found is only applicable if the new data followed the same distribution, and this is simply not the case when considering future data.
 
+\pagebreak
+
 ### Monthly Predictions with a Spatial Component
 
 The previous example aggregated counts of reported crime over weeks, and as such used only a single-dimensional feature vector. We look at extending this analysis by aggregating over an additional spatial component. In the ensuing analysis, we consider predicting the reported crime counts over a month, aggregated over the community areas.
 
-The positions of the community areas will be represented by the coordinates of their centroids, which are extracted from their shapefiles.
+The positions of the community areas will be represented by the coordinates of their centroids, which are extracted from their shapefiles. These shapefiles are included in the package for ease.
 
 ```{r, include = FALSE}
 rm(list = ls())
@@ -485,7 +496,7 @@ centroids <- community_bounds %>%
   st_coordinates() %>%
   as_tibble() %>%
   mutate(community_area = 1:nrow(.))
-
+# Plot the locations of centroids on map
 centroids_plot <- ggplot() +
   geom_sf(data = community_bounds) +
   geom_point(data = centroids, aes(X, Y), size = 5, colour = "steelblue1") +
@@ -514,7 +525,7 @@ df %<>% select(date, community_area) %>%
   left_join(centroids, by = "community_area")
 ```
 
-In order to choose a suitable bandwidth parameter for the radial basis function, we perform repeated 5-fold cross-validation.
+In order to choose a suitable bandwidth parameter for the radial basis function, we again perform repeated 5-fold cross-validation.
 
 ```{r warning = FALSE}
 # Obtain data matrix for fitting the model
@@ -529,7 +540,7 @@ y <- df$n
 ```{r, eval = FALSE}
 # Bandwidth candidates
 bandwidth <- c(0.1, 1, 5, 10, 100)
-
+# Initialise vector for storing RMSE values
 rmse_vec <- c()
 # Set new seed for reproduciblility
 set.seed(3)
@@ -545,9 +556,8 @@ for (i in 1:length(bandwidth)){
     cv_results_best <- cv_results
   }
 }
-
+# Store as data frame and plot
 rbf_results <- data.frame(bandwidth, rmse = rmse_vec)
-
 band_plot <- ggplot(rbf_results) +
   geom_line(aes(x = bandwidth, y = rmse)) +
   scale_x_log10() +
@@ -555,7 +565,7 @@ band_plot <- ggplot(rbf_results) +
 band_plot
 ```
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, fig.height = 3}
 cv_results_best <- readRDS("temp_data/cv_results_best2.rds")
 kr_best <- readRDS("temp_data/kr_best2.rds")
 bandwidth_plot <- readRDS("temp_data/cv_plot2.rds")
@@ -564,27 +574,27 @@ bandwidth_plot + xlab("Bandwidth") + ylab("RMSE")
 
 We obtain an optimal value of `r kr_best$A` which minimises the mean square error. Again, we can look at the results for the three repeats of 5-fold cross-validation for this model:
 
-```{r}
+```{r, cache = TRUE, results = "asis"}
 tab <- xtable::xtable(as_tibble(cv_results_best))
-print(tab, type = "latex")
+print(tab, type = "latex", comment = FALSE)
 ```
 
 On average, this model explained `r round(mean(cv_results_best$r2), 4)*100`% of the variance. Note the lower $R^2$ value: in contrast to the weekly model, observations were not averaged over the whole of Chicago.
 
-Although being higher dimensional so difficult to plot, we can plot the predicted values against the observed values on a held out data set:
+We can plot the predicted values against the observed values on a held out data set to observe the predictive power of the model:
 
-```{r}
+```{r, cache = TRUE}
+# Randomly generate training and test data
 index <- sample(1:nrow(X), round(0.2 * nrow(X)))
-
+# Split the data
 X_train <- X[-index, , drop = FALSE]
 y_train <- y[-index]
 X_test <- X[index, ]
 y_test <- y[index]
-
 # Refit best model on full training dataset
 kr_best$fit(X_train, y_train)
 y_hat <- kr_best$predict(X_test)
-
+# Plot predicted values against actual number of reports
 pred_plot <- qplot(y_test, y_hat, geom = "point") +
   geom_abline(slope = 1, intercept = 0, colour = "steelblue2") +
   labs(x = "Actual number of reported incidents", 
@@ -593,13 +603,21 @@ pred_plot <- qplot(y_test, y_hat, geom = "point") +
 pred_plot
 ```
 
+```{r, include = FALSE}
+ggsave("pred_plot.pdf", pred_plot)
+```
+
 The plot illustrates strong predictive power, particularly when the number of reported incidents is smaller. We do note the drop-off at the higher end of actual reported incidents, suggesting the model tends to under-predict in these cases. This is to be expected somewhat, as extremely high counts are rare and the model has not been trained on a dataset containing such high counts.
 
 We conclude this section by noting that kernel ridge regression can provide prediction functions that explain a high proportion of the variance. However, a major limitation of this method in our case is that it would be primarily be useful for interpolation, rather than extrapolation, for the reasons outlined above. 
 
 In the subsequent section, we explore generalised additive models, which form a more principled approach for forecasting the number of crimes.
 
+\pagebreak
+
 ## Generalised Additive Models
+
+Our `R6` class `PoissonGAM` is a wrapper 
 
 A little about `PoissonGAM` and **mgcv**.
 
@@ -696,15 +714,21 @@ We first summarise the dates on which the most and fewest crimes are reported, t
 ```{r}
 most_crimes <- count_train %>% arrange(by = desc(n))
 most_crimes$date <- as.character(most_crimes$date)
+```
+
+```{r, cache = TRUE, results = "asis"}
 tab <- xtable::xtable(head(most_crimes[, -5]), )
-print(tab, type = "latex")
+print(tab, type = "latex", comment = FALSE)
 ```
 
 ```{r}
 least_crimes <- count_train %>% arrange(by = n)
 least_crimes$date <- as.character(least_crimes$date)
+```
+
+```{r, cache = TRUE, results = "asis"}
 tab <- xtable::xtable(head(least_crimes[, -5]), )
-print(tab, type = "latex")
+print(tab, type = "latex", comment = FALSE)
 ```
 
 ```{r}
@@ -731,15 +755,19 @@ data_2014 <- load_data(2014, strings_as_factors = TRUE)
 ```
 
 ```{r, cache = TRUE}
-data_2014 <- data_2014 %>% convert_dates(exclude = "hour") %>% count(year, date) %>% arrange(year)
-count_train_new[1, "n_pre"] <- data_2014[data_2014$date == "2014-12-31", "n"][1,] #fill in previous year manually
-count_test_new[1, "n_pre"] <- count_train_new[count_train_new$date == "2018-12-31", "n"] #fill in previous year manually
+data_2014 <- data_2014 %>% 
+  convert_dates(exclude = "hour") %>% 
+  count(year, date) %>% 
+  arrange(year)
+# Fill in previous year manually
+count_train_new[1, "n_pre"] <- data_2014[data_2014$date == "2014-12-31", "n"][1,] 
+count_test_new[1, "n_pre"] <- count_train_new[count_train_new$date == "2018-12-31", "n"]
 print(as.data.frame(head(count_train_new)))
 ```
 
 As `PoissonGAM` doesn't currently have functionality to support additional custom features, here we fit the GAM directly using `gam` from **mgcv**.
 
-```{r, cache = TRUE}
+```{r, cache = TRUE, warning = FALSE}
 gam2 <- gam(n ~ s(as.numeric(yday), bs = "cc") + n_pre, 
             data = count_train_new, family = "poisson")
 gam2_pred <- predict(gam2, type = "response", newdata = count_full)
@@ -761,7 +789,7 @@ rmse[2] <- rmse_loss(gam2_test, count_test_new$n)
 rsq[2] <- r_squared(gam2_test, count_test_new$n)
 ```
 
-```{r, cache = TRUE}
+```{r, cache = TRUE, warning = FALSE}
 gam3 <- gam(n ~ s(as.numeric(yday), bs = "cc") + 
               s(as.numeric(dow), bs = "cr", k = 5) + n_pre, 
             data = count_train_new, family = "poisson")
@@ -784,7 +812,7 @@ rmse[3] <- rmse_loss(gam3_test, count_test_new$n)
 rsq[3] <- r_squared(gam3_test, count_test_new$n)
 ```
 
-```{r, cache = TRUE}
+```{r, cache = TRUE, warning = FALSE}
 # Fit GAM
 gam4 <- gam(n ~ s(as.numeric(yday), bs = "cc") + 
               as.factor(dow) + n_pre, 
@@ -809,7 +837,7 @@ rmse[4] <- rmse_loss(gam4_test, count_test_new$n)
 rsq[4] <- r_squared(gam4_test, count_test_new$n)
 ```
 
-```{r, cache = TRUE}
+```{r, cache = TRUE, warning = FALSE}
 gam5 <- gam(n ~ s(as.numeric(yday), bs = "cc") + as.factor(dow) + n_pre + 
               is_fom + is_christmas + is_nyd + as.factor(week), 
             data = count_train_new, family = "poisson")
@@ -832,70 +860,148 @@ gam5_test <- predict(gam5, type = "response", newdata = count_test_new)
 rmse[5] <- rmse_loss(gam5_test, count_test_new$n)
 rsq[5] <- r_squared(gam5_test, count_test_new$n)
 gam_metrics <- data.frame(RMSE = rmse, R2 = rsq)
-tab <- xtable::xtable(gam_metrics)
-print(tab, type = "latex")
 ```
 
-### Adding Spatial and Categorical Data
+```{r, cache = TRUE, results = "asis"}
+tab <- xtable::xtable(gam_metrics)
+print(tab, type = "latex", comment = FALSE)
+```
+
+### Adding Spatial Data
 
 ```{r, warning = FALSE}
 # Construct training data set
 spatial_train <- gam_train %>% 
-  get_count_data(time_period = "month", region = "community_area", 
-                 crime_type = "fbi_code")
+  get_count_data(time_period = "month", region = "community_area")
 # Construct test data set
 spatial_test <- gam_test %>% 
-  get_count_data(time_period = "month", region = "community_area", 
-                 crime_type = "fbi_code")
-
-# Initisalise GAM
-wgam_com <- PoissonGAM$new(time_period = "month", region = "community_area",
-                     crime_type = "fbi_code", include_nb = FALSE)
-
-# Fit using gam_train as the dataset 
+  get_count_data(time_period = "month", region = "community_area")
+# Split into data matrix and reponse vector
 X_train <- spatial_train %>% select(-n)
 y_train <- spatial_train$n
 X_test <- spatial_test %>% select(-n)
-```
-
-```{r, eval = FALSE}
 metrics <- list(rmse = rmse_loss, r2 = r_squared)
-# Find CV error for given metrics
-gam_results <- kfold_cv(wgam_com, X = X, y = y, error_funcs = metrics, 
-                        k = 5, n_reps = 5, parallel = TRUE, n_threads = 5)
-names(gam_results) <- c("RMSE", "R2")
 ```
 
 ```{r, include = FALSE}
-gam_results <- readRDS("temp_data/GAM_results.rds")
-names(gam_results) <- c("RMSE", "R2")
-wgam_com <- readRDS("temp_data/wGAM.rds")
-```
-
-```{r}
-tab <- xtable::xtable(as_tibble(gam_results), digits = 4)
-print(tab, type = "latex")
+mgam <- readRDS("temp_data/mGAM.rds")
+mgam_results <- readRDS("temp_data/mGAMcv.rds")
 ```
 
 ```{r, eval = FALSE}
-# Fit model and find validation error
-wgam_com$fit(X, y, n_threads = 7)
+# Initialise PoissonGAM object
+mgam <- PoissonGAM$new(time_period = "month", region = "community_area",
+                     crime_type = NULL, include_nb = TRUE)
+
+# Find CV error for given metrics
+mgam_results <- kfold_cv(mgam, X = X_train, y = y_train, 
+                         error_funcs = metrics, k = 5, n_reps = 5, 
+                         parallel = TRUE, n_threads = 5)
 ```
 
-```{r}
-wgam_com$gam_fitted
+```{r, cache = TRUE, results = "asis"}
+names(mgam_results) <- c("RMSE", "R2")
+tab <- xtable::xtable(as_tibble(mgam_results), digits = 3)
+print(tab, type = "latex", comment = FALSE)
+```
+
+```{r, eval = FALSE}
+# Re-fit model
+mgam$fit(X_train, y_train, n_threads = 7)
+```
+
+```{r, cache = TRUE}
+# Summary of the fit
+mgam$fit_summary
+# Predict on test data
+spatial_test$predicted <- mgam$predict(X = X_test)
+```
+
+```{r, cache = TRUE, results = "asis"}
+# Compute evaluation metrics
+rmse <- rmse_loss(spatial_test$n, spatial_test$predicted)
+rsq <- r_squared(spatial_test$n, spatial_test$predicted)
+tab <- xtable::xtable(data.frame("RMSE" = rmse, "R2" = rsq))
+print(tab, type = "latex", comment = FALSE)
 ```
 
 ```{r, cache = TRUE, message = FALSE}
-spatial_test$predicted <- wgam_com$predict(X = X_test)
-
-rmse_loss(spatial_test$n, spatial_test$predicted)
-r_squared(spatial_test$n, spatial_test$predicted)
-
-com_area <- spatial_test %>% group_by(community_area) %>% 
+data("community_bounds")
+com_area <- spatial_test %>% 
+  group_by(community_area) %>% 
   summarise(n = sum(n), n_pred = sum(predicted))
 com_area$residual <- (com_area$n - com_area$n_pred)
-data("community_bounds")
+community_bounds$residual <- com_area$residual
+
+by_area <- ggplot(community_bounds) + geom_sf(aes(fill = residual)) + 
+  ggtitle("Predicted Crime Frequency by Community Area") +
+  colorspace::scale_fill_continuous_sequential(5, palette = "Inferno") + 
+  theme_void() +
+  guides(fill = guide_colorbar(title = "Frequency")) +
+  scale_fill_gradientn(colors = colorspace::sequential_hcl(5, palette = "Inferno")[5:1], 
+                       breaks = seq(-1500, 1000, 500), limits = c(-1500, 1000))
+by_area
+```
+
+### Adding Categorical Data
+
+```{r, cache = TRUE}
+# Construct training data set
+spatial_fbi_train <- gam_train %>% 
+  get_count_data(time_period = "month", region = "community_area", 
+                 crime_type = "fbi_code")
+# Construct test data set
+spatial_fbi_test <- gam_test %>% 
+  get_count_data(time_period = "month", region = "community_area", 
+                 crime_type = "fbi_code")
+# Split into data matrix and reponse vector
+X_train <- spatial_fbi_train %>% select(-n)
+y_train <- spatial_fbi_train$n
+X_test <- spatial_fbi_test %>% select(-n)
+```
+
+```{r, eval = FALSE}
+# Initisalise PoissonGAM
+mgam_com_fbi <- PoissonGAM$new(time_period = "month", region = "community_area",
+                     crime_type = "fbi_code", include_nb = FALSE)
+# Find CV error for given metrics
+mgam_fbi_results <- kfold_cv(mgam_com_fbi, X = X, y = y, error_funcs = metrics, 
+                        k = 5, n_reps = 5, parallel = TRUE, n_threads = 5)
+names(mgam_fbi_results) <- c("RMSE", "R2")
+```
+
+```{r, include = FALSE}
+mgam_fbi_results <- readRDS("temp_data/GAM_results.rds")
+names(mgam_fbi_results) <- c("RMSE", "R2")
+mgam_com_fbi <- readRDS("temp_data/wGAM.rds")
+```
+
+```{r, cache = TRUE, results = "asis"}
+tab <- xtable::xtable(as_tibble(mgam_fbi_results), digits = 4)
+print(tab, type = "latex", comment = FALSE)
+```
+
+```{r, eval = FALSE}
+# Fit full model
+mgam_com_fbi$fit(X_train, y_train, n_threads = 7)
+```
+
+```{r, cache = TRUE, message = FALSE}
+spatial_fbi_test$predicted <- mgam_com_fbi$predict(X = X_test)
+```
+
+```{r, cache = TRUE, results = "asis"}
+# Compute evaluation metrics
+rmse <- rmse_loss(spatial_fbi_test$n, spatial_fbi_test$predicted)
+rsq <- r_squared(spatial_fbi_test$n, spatial_fbi_test$predicted)
+tab <- xtable::xtable(data.frame("RMSE" = rmse, "R2" = rsq))
+print(tab, type = "latex", comment = FALSE)
+```
+
+```{r, cache = TRUE, message = FALSE, warning = FALSE}
+com_area <- spatial_fbi_test %>% group_by(community_area) %>% 
+  summarise(n = sum(n), n_pred = sum(predicted))
+com_area$residual <- (com_area$n - com_area$n_pred)
 community_bounds$residual <- com_area$residual
 
 # Plot the residuals for each Community Area
