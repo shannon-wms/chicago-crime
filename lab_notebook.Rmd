@@ -5,6 +5,7 @@ date: "25/01/2021"
 output: 
   pdf_document:
     number_sections: true
+urlcolor: blue
 ---
 
 ```{r setup, include = FALSE}
@@ -26,7 +27,7 @@ The notebook will be broken up into three sections:
 
 # Workflow and Computational Techniques
 
-In the development of the package **chigcrim**, we utilised a number of computational techniques which are documented below. The package can be accessed on GitHub: \url{https://github.com/shannon-wms/chicago-crime}.
+In the development of the package **chigcrim**, we utilised a number of computational techniques which are documented below. The package can be accessed on GitHub: \url{https://github.com/shannon-wms/chicago-crime/tree/main/chigcrim}.
 
 ## Object-Oriented Programming
 
